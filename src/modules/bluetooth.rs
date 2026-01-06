@@ -146,14 +146,14 @@ impl Module for BluetoothModule {
         "Bluetooth"
     }
 
-    fn display_text(&self, _config: &crate::config::Config) -> String {
+    fn display_text(&self, config: &crate::config::Config) -> String {
         // Use emoji as fallback for better compatibility
         match self.state {
             BluetoothState::Off => "🔵○".to_string(),
             BluetoothState::On => "🔵".to_string(),
             BluetoothState::Connected => {
                 let count = self.connected_devices.len();
-                if count > 0 {
+                if count > 0 && config.modules.bluetooth.show_device_count {
                     format!("🔵 {}", count)
                 } else {
                     "🔵●".to_string()

@@ -760,6 +760,27 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         SYSINFO_CPU => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_cpu),
         SYSINFO_MEM => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_memory),
         
+        // GPU settings
+        GPU_SHOW_USAGE => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_usage),
+        GPU_SHOW_MEMORY => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_memory),
+        GPU_SHOW_TEMP => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_temperature),
+        
+        // Keyboard layout settings
+        KEYBOARD_SHOW_FULL => toggle_config_bool(hwnd, |c| &mut c.modules.keyboard_layout.show_full_name),
+        KEYBOARD_AUTO_SWITCH => toggle_config_bool(hwnd, |c| &mut c.modules.keyboard_layout.auto_switch),
+        
+        // Uptime settings
+        UPTIME_SHOW_DAYS => toggle_config_bool(hwnd, |c| &mut c.modules.uptime.show_days),
+        UPTIME_COMPACT => toggle_config_bool(hwnd, |c| &mut c.modules.uptime.compact_format),
+        
+        // Bluetooth settings
+        BLUETOOTH_ENABLED => toggle_config_bool(hwnd, |c| &mut c.modules.bluetooth.enabled),
+        BLUETOOTH_SHOW_COUNT => toggle_config_bool(hwnd, |c| &mut c.modules.bluetooth.show_device_count),
+        
+        // Disk settings
+        DISK_SHOW_PERCENTAGE => toggle_config_bool(hwnd, |c| &mut c.modules.disk.show_percentage),
+        DISK_SHOW_ACTIVITY => toggle_config_bool(hwnd, |c| &mut c.modules.disk.show_activity),
+        
         // App menu
         APP_ABOUT => show_about_dialog(),
         APP_SETTINGS => open_config_file(),
@@ -933,6 +954,11 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "volume" => show_volume_menu(hwnd, pt.x, pt.y),
         "network" => show_network_menu(hwnd, pt.x, pt.y),
         "system_info" => show_sysinfo_menu(hwnd, pt.x, pt.y),
+        "gpu" => show_gpu_menu(hwnd, pt.x, pt.y),
+        "keyboard_layout" => show_keyboard_menu(hwnd, pt.x, pt.y),
+        "uptime" => show_uptime_menu(hwnd, pt.x, pt.y),
+        "bluetooth" => show_bluetooth_menu(hwnd, pt.x, pt.y),
+        "disk" => show_disk_menu(hwnd, pt.x, pt.y),
         "app_menu" => show_app_menu(hwnd, pt.x, pt.y),
         _ => {
             debug!("Unhandled module click: {}", module_id);
@@ -960,6 +986,27 @@ const NET_SHOW_NAME: u32 = 2301;
 // Menu IDs for battery
 const BAT_SHOW_PCT: u32 = 2401;
 const BAT_SHOW_TIME: u32 = 2402;
+
+// Menu IDs for GPU
+const GPU_SHOW_USAGE: u32 = 2601;
+const GPU_SHOW_MEMORY: u32 = 2602;
+const GPU_SHOW_TEMP: u32 = 2603;
+
+// Menu IDs for keyboard layout
+const KEYBOARD_SHOW_FULL: u32 = 2701;
+const KEYBOARD_AUTO_SWITCH: u32 = 2702;
+
+// Menu IDs for uptime
+const UPTIME_SHOW_DAYS: u32 = 2801;
+const UPTIME_COMPACT: u32 = 2802;
+
+// Menu IDs for bluetooth
+const BLUETOOTH_ENABLED: u32 = 2901;
+const BLUETOOTH_SHOW_COUNT: u32 = 2902;
+
+// Menu IDs for disk
+const DISK_SHOW_PERCENTAGE: u32 = 3001;
+const DISK_SHOW_ACTIVITY: u32 = 3002;
 
 // Menu IDs for app menu
 const APP_ABOUT: u32 = 2501;
@@ -1101,6 +1148,122 @@ fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
         DestroyMenu(menu).ok();
         
         info!("App menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_gpu_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+        
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+        
+        append_menu_item(menu, GPU_SHOW_USAGE, "Show GPU Usage", config.modules.gpu.show_usage);
+        append_menu_item(menu, GPU_SHOW_MEMORY, "Show Memory Usage", config.modules.gpu.show_memory);
+        append_menu_item(menu, GPU_SHOW_TEMP, "Show Temperature", config.modules.gpu.show_temperature);
+        
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+        
+        info!("GPU menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_keyboard_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+        
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+        
+        append_menu_item(menu, KEYBOARD_SHOW_FULL, "Show Full Language Name", config.modules.keyboard_layout.show_full_name);
+        append_menu_item(menu, KEYBOARD_AUTO_SWITCH, "Auto-switch on Window Focus", config.modules.keyboard_layout.auto_switch);
+        
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+        
+        info!("Keyboard menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_uptime_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+        
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+        
+        append_menu_item(menu, UPTIME_SHOW_DAYS, "Show Days in Uptime", config.modules.uptime.show_days);
+        append_menu_item(menu, UPTIME_COMPACT, "Compact Format", config.modules.uptime.compact_format);
+        
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+        
+        info!("Uptime menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_bluetooth_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+        
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+        
+        append_menu_item(menu, BLUETOOTH_ENABLED, "Enable Bluetooth Module", config.modules.bluetooth.enabled);
+        append_menu_item(menu, BLUETOOTH_SHOW_COUNT, "Show Device Count", config.modules.bluetooth.show_device_count);
+        
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+        
+        info!("Bluetooth menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_disk_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+        
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+        
+        append_menu_item(menu, DISK_SHOW_PERCENTAGE, "Show Usage Percentage", config.modules.disk.show_percentage);
+        append_menu_item(menu, DISK_SHOW_ACTIVITY, "Show Activity Indicator", config.modules.disk.show_activity);
+        
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+        
+        info!("Disk menu returned cmd: {}", cmd.0);
         if cmd.0 != 0 {
             handle_menu_command(hwnd, cmd.0 as u32);
         }

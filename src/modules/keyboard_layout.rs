@@ -170,8 +170,12 @@ impl Module for KeyboardLayoutModule {
         "Keyboard Layout"
     }
 
-    fn display_text(&self, _config: &crate::config::Config) -> String {
-        format!("⌨ {}", self.language_code)
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        if config.modules.keyboard_layout.show_full_name {
+            format!("⌨ {}", self.language_name)
+        } else {
+            format!("⌨ {}", self.language_code)
+        }
     }
 
     fn update(&mut self) {
