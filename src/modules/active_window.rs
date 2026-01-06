@@ -2,12 +2,13 @@
 
 use std::time::Instant;
 use windows::Win32::Foundation::HWND;
+use windows::core::PWSTR;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetForegroundWindow, GetWindowTextW, GetWindowTextLengthW,
     GetWindowThreadProcessId,
 };
 use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
 };
 use windows::Win32::System::ProcessStatus::GetModuleBaseNameW;
 
@@ -117,11 +118,33 @@ impl ActiveWindowModule {
 
             let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id);
             if let Ok(handle) = handle {
+                // Try QueryFullProcessImageNameW first
                 let mut buffer: Vec<u16> = vec![0; 260];
-                let length = GetModuleBaseNameW(handle, None, &mut buffer);
+                let mut size: u32 = buffer.len() as u32;
+                let result = QueryFullProcessImageNameW(
+                    handle,
+                    PROCESS_NAME_FORMAT(0),
+                    PWSTR(buffer.as_mut_ptr()),
+                    &mut size,
+                );
                 
                 let _ = windows::Win32::Foundation::CloseHandle(handle);
 
+                if result.is_ok() && size > 0 {
+                    let full_path = String::from_utf16_lossy(&buffer[..size as usize]);
+                    // Extract filename from path
+                    if let Some(filename) = std::path::Path::new(&full_path).file_name() {
+                        if let Some(name_str) = filename.to_str() {
+                            return name_str.to_string();
+                        }
+                    }
+                    return full_path;
+                }
+
+                // Fallback to GetModuleBaseNameW
+                let mut buffer: Vec<u16> = vec![0; 260];
+                let length = GetModuleBaseNameW(handle, None, &mut buffer);
+                
                 if length > 0 {
                     return String::from_utf16_lossy(&buffer[..length as usize]);
                 }

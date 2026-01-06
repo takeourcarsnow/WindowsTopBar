@@ -11,4 +11,4 @@ gpu usage always shows 0%
 pressing mute on volume does nothing
 i switch to lithuanian layout but it shows up as unknown or ??
 
-window indicator always says Desktop no matter what app im in
+window indicator always says Desktop no matter what app im in - FIXED: Updated to use QueryFullProcessImageNameW instead of GetModuleBaseNameW
