@@ -123,8 +123,19 @@ impl Module for SystemInfoModule {
         "System Info"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        // Build display text based on config
+        let mut parts = Vec::new();
+
+        if config.modules.system_info.show_cpu {
+            parts.push(format!("CPU {:.0}%", self.cpu_usage));
+        }
+
+        if config.modules.system_info.show_memory {
+            parts.push(format!("MEM {:.0}%", self.memory_usage));
+        }
+
+        parts.join("  ")
     }
 
     fn update(&mut self) {

@@ -157,7 +157,7 @@ impl Module for ActiveWindowModule {
         "Active Window"
     }
 
-    fn display_text(&self) -> String {
+    fn display_text(&self, _config: &crate::config::Config) -> String {
         truncate_string(&self.cached_text, self.max_title_length)
     }
 

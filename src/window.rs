@@ -679,9 +679,9 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         // Need to set foreground for menu to work properly
         let _ = SetForegroundWindow(hwnd);
         
-        TrackPopupMenu(
+        let cmd = TrackPopupMenu(
             menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
             x, y,
             0,
             hwnd,
@@ -689,6 +689,11 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         );
         
         DestroyMenu(menu).ok();
+        
+        info!("Context menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -705,12 +710,12 @@ fn append_menu_item(menu: HMENU, id: u32, text: &str, checked: bool) {
 fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
     match cmd_id {
         // Main context menu
-        MENU_SHOW_CLOCK => toggle_module("clock"),
-        MENU_SHOW_BATTERY => toggle_module("battery"),
-        MENU_SHOW_VOLUME => toggle_module("volume"),
-        MENU_SHOW_NETWORK => toggle_module("network"),
-        MENU_SHOW_SYSINFO => toggle_module("system_info"),
-        MENU_SHOW_MEDIA => toggle_module("media"),
+        MENU_SHOW_CLOCK => toggle_module(hwnd, "clock"),
+        MENU_SHOW_BATTERY => toggle_module(hwnd, "battery"),
+        MENU_SHOW_VOLUME => toggle_module(hwnd, "volume"),
+        MENU_SHOW_NETWORK => toggle_module(hwnd, "network"),
+        MENU_SHOW_SYSINFO => toggle_module(hwnd, "system_info"),
+        MENU_SHOW_MEDIA => toggle_module(hwnd, "media"),
         MENU_SETTINGS => open_config_file(),
         MENU_RELOAD => reload_config(hwnd),
         MENU_EXIT => {
@@ -797,7 +802,7 @@ fn show_about_dialog() {
 }
 
 /// Toggle a module on/off
-fn toggle_module(module_id: &str) {
+fn toggle_module(hwnd: HWND, module_id: &str) {
     if let Some(state) = get_window_state() {
         let config = state.read().config.clone();
         let mut new_config = (*config).clone();
@@ -836,6 +841,11 @@ fn toggle_module(module_id: &str) {
         
         // Update the state with new config
         state.write().config = Arc::new(new_config);
+
+        // Force a redraw so changes take effect immediately
+        unsafe {
+            let _ = InvalidateRect(hwnd, None, true);
+        }
     }
 }
 
@@ -954,8 +964,13 @@ fn show_clock_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, CLOCK_DAY, "Show Day of Week", config.modules.clock.show_day);
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("Clock menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -972,8 +987,13 @@ fn show_battery_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, BAT_SHOW_TIME, "Show Time Remaining", config.modules.battery.show_time_remaining);
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("Battery menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -991,8 +1011,13 @@ fn show_volume_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, VOL_MUTE, "Mute", false);  // TODO: Get actual mute state
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("Volume menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -1008,8 +1033,13 @@ fn show_network_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, NET_SHOW_NAME, "Show Network Name", config.modules.network.show_name);
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("Network menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -1026,8 +1056,13 @@ fn show_sysinfo_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, SYSINFO_MEM, "Show Memory Usage", config.modules.system_info.show_memory);
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("Sysinfo menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }
 
@@ -1044,7 +1079,12 @@ fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, APP_EXIT, "Exit TopBar", false);
         
         let _ = SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, hwnd, None);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
         DestroyMenu(menu).ok();
+        
+        info!("App menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
     }
 }

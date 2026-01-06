@@ -132,19 +132,22 @@ impl Renderer {
         // First update all modules to get fresh data
         self.module_registry.update_all();
         
-        // Get enabled modules from config
-        let (left_modules, right_modules) = get_window_state()
+        // Get enabled modules and config from state
+        let (left_modules, right_modules, config) = get_window_state()
             .map(|s| {
-                let config = s.read().config.clone();
+                let state = s.read();
                 (
-                    config.modules.left_modules.clone(),
-                    config.modules.right_modules.clone(),
+                    state.config.modules.left_modules.clone(),
+                    state.config.modules.right_modules.clone(),
+                    state.config.clone(),
                 )
             })
             .unwrap_or_else(|| {
+                let default_config = crate::config::Config::default();
                 (
                     vec!["app_menu".to_string(), "active_app".to_string()],
                     vec!["clock".to_string()],
+                    std::sync::Arc::new(default_config),
                 )
             });
         
@@ -178,7 +181,7 @@ impl Renderer {
                 SelectObject(hdc, bold_font);
                 let app_name = self.module_registry
                     .get("active_window")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| "TopBar".to_string());
                 let app_rect = self.draw_module_text(
                     hdc, x, bar_rect.height, &app_name, item_padding, theme, true
@@ -194,7 +197,7 @@ impl Renderer {
             if right_modules.contains(&"clock".to_string()) {
                 let clock_text = self.module_registry
                     .get("clock")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
                 let (text_width, _) = self.measure_text(hdc, &clock_text);
                 x -= text_width + item_padding * 2;
@@ -209,7 +212,7 @@ impl Renderer {
             if right_modules.contains(&"battery".to_string()) {
                 let battery_text = self.module_registry
                     .get("battery")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| {
                         let icon = self.icons.get("battery");
                         format!("{} --", icon)
@@ -229,7 +232,7 @@ impl Renderer {
             if right_modules.contains(&"volume".to_string()) {
                 let volume_text = self.module_registry
                     .get("volume")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| self.icons.get("volume_high"));
                 let (text_width, _) = self.measure_text(hdc, &volume_text);
                 x -= text_width + item_padding * 2;
@@ -244,7 +247,7 @@ impl Renderer {
             if right_modules.contains(&"network".to_string()) {
                 let network_text = self.module_registry
                     .get("network")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| self.icons.get("wifi"));
                 let (text_width, _) = self.measure_text(hdc, &network_text);
                 x -= text_width + item_padding * 2;
@@ -259,7 +262,7 @@ impl Renderer {
             if right_modules.contains(&"system_info".to_string()) {
                 let sysinfo_text = self.module_registry
                     .get("system_info")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| "CPU --  MEM --".to_string());
                 let (text_width, _) = self.measure_text(hdc, &sysinfo_text);
                 x -= text_width + item_padding * 2;
@@ -274,7 +277,7 @@ impl Renderer {
             if right_modules.contains(&"media".to_string()) {
                 let media_text = self.module_registry
                     .get("media")
-                    .map(|m| m.display_text())
+                    .map(|m| m.display_text(&*config))
                     .unwrap_or_default();
                 if !media_text.is_empty() {
                     let (text_width, _) = self.measure_text(hdc, &media_text);

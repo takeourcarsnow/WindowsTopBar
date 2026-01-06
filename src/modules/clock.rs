@@ -98,16 +98,41 @@ impl Module for ClockModule {
         "Clock"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        let now = Local::now();
+        
+        let time_str = if config.modules.clock.format_24h {
+            if config.modules.clock.show_seconds {
+                now.format("%H:%M:%S").to_string()
+            } else {
+                now.format("%H:%M").to_string()
+            }
+        } else {
+            if config.modules.clock.show_seconds {
+                now.format("%I:%M:%S %p").to_string()
+            } else {
+                now.format("%I:%M %p").to_string()
+            }
+        };
+
+        let mut result = String::new();
+
+        if config.modules.clock.show_day {
+            result.push_str(&now.format("%a").to_string());
+            result.push(' ');
+        }
+
+        if config.modules.clock.show_date {
+            result.push_str(&now.format("%b %d").to_string());
+            result.push_str("  ");
+        }
+
+        result.push_str(&time_str);
+        result
     }
 
     fn update(&mut self) {
-        // Only update once per second
-        if self.last_update.elapsed().as_millis() >= 1000 || self.cached_text.is_empty() {
-            self.cached_text = self.format_time();
-            self.last_update = std::time::Instant::now();
-        }
+        // Time updates automatically
     }
 
     fn on_click(&mut self) {

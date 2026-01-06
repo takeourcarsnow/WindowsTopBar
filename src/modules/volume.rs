@@ -133,8 +133,14 @@ impl Module for VolumeModule {
         "Volume"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        let icon = self.get_volume_icon();
+        
+        if config.modules.volume.show_percentage {
+            format!("{} {}%", icon, self.volume_level)
+        } else {
+            icon.to_string()
+        }
     }
 
     fn update(&mut self) {

@@ -159,8 +159,29 @@ impl Module for BatteryModule {
         "Battery"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        if !self.has_battery {
+            return String::new();
+        }
+
+        let icon = self.get_battery_icon();
+        let mut text = icon.to_string();
+
+        if config.modules.battery.show_percentage {
+            text.push_str(&format!(" {}%", self.battery_percent));
+        }
+
+        if config.modules.battery.show_time_remaining {
+            if let Some(secs) = self.seconds_remaining {
+                text.push_str(&format!(" ({})", format_duration(secs as u64)));
+            }
+        }
+
+        if self.is_charging {
+            text.push_str(" ⚡");
+        }
+
+        text
     }
 
     fn update(&mut self) {

@@ -226,8 +226,8 @@ impl Module for AppMenuModule {
         "App Menu"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, _config: &crate::config::Config) -> String {
+        "☰".to_string()
     }
 
     fn update(&mut self) {

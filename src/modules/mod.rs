@@ -28,7 +28,7 @@ pub trait Module: Send + Sync {
     fn name(&self) -> &str;
 
     /// Get the current display text
-    fn display_text(&self) -> String;
+    fn display_text(&self, config: &crate::config::Config) -> String;
 
     /// Update module state (called periodically)
     fn update(&mut self);

@@ -197,8 +197,30 @@ impl Module for NetworkModule {
         "Network"
     }
 
-    fn display_text(&self) -> String {
-        self.cached_text.clone()
+    fn display_text(&self, config: &crate::config::Config) -> String {
+        let mut text = String::new();
+
+        if self.show_icon {
+            let icon = match self.network_type {
+                NetworkType::Disconnected => "📵",
+                NetworkType::Ethernet => "🔗",
+                NetworkType::WiFi => self.get_wifi_icon(),
+                NetworkType::Cellular => "📶",
+                NetworkType::Unknown => "🌐",
+            };
+            text.push_str(icon);
+        }
+
+        if config.modules.network.show_name {
+            if let Some(ref name) = self.network_name {
+                if !text.is_empty() {
+                    text.push(' ');
+                }
+                text.push_str(name);
+            }
+        }
+
+        text
     }
 
     fn update(&mut self) {

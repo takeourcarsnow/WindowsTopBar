@@ -211,7 +211,7 @@ impl Module for MediaModule {
         "Media Controls"
     }
 
-    fn display_text(&self) -> String {
+    fn display_text(&self, _config: &crate::config::Config) -> String {
         self.cached_text.clone()
     }
 
