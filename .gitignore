@@ -1,0 +1,36 @@
+# Rust build artifacts
+target/
+
+# Cargo.lock for applications (uncomment if this is a library)
+# Cargo.lock
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+*.exe
+*.pdb
+*.ilk
+*.obj
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
