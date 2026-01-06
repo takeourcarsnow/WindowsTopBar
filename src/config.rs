@@ -184,6 +184,16 @@ pub struct ModulesConfig {
     pub battery: BatteryConfig,
     /// Volume module settings
     pub volume: VolumeConfig,
+    /// GPU module settings
+    pub gpu: GpuConfig,
+    /// Keyboard layout module settings
+    pub keyboard_layout: KeyboardLayoutConfig,
+    /// Uptime module settings
+    pub uptime: UptimeConfig,
+    /// Bluetooth module settings
+    pub bluetooth: BluetoothConfig,
+    /// Disk module settings
+    pub disk: DiskConfig,
     /// Enabled modules in order (left side)
     pub left_modules: Vec<String>,
     /// Enabled modules in order (center)
@@ -203,6 +213,11 @@ impl Default for ModulesConfig {
             network: NetworkConfig::default(),
             battery: BatteryConfig::default(),
             volume: VolumeConfig::default(),
+            gpu: GpuConfig::default(),
+            keyboard_layout: KeyboardLayoutConfig::default(),
+            uptime: UptimeConfig::default(),
+            bluetooth: BluetoothConfig::default(),
+            disk: DiskConfig::default(),
             left_modules: vec![
                 "app_menu".to_string(),
                 "active_app".to_string(),
@@ -210,9 +225,15 @@ impl Default for ModulesConfig {
             center_modules: vec![],
             right_modules: vec![
                 "media".to_string(),
+                "keyboard_layout".to_string(),
+                "gpu".to_string(),
+                "system_info".to_string(),
+                "disk".to_string(),
                 "network".to_string(),
+                "bluetooth".to_string(),
                 "volume".to_string(),
                 "battery".to_string(),
+                "uptime".to_string(),
                 "clock".to_string(),
             ],
         }
@@ -511,7 +532,56 @@ impl Default for VolumeConfig {
     }
 }
 
-/// Behavior configuration
+/// GPU module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GpuConfig {
+    /// Enable GPU module
+    pub enabled: bool,
+    /// Show GPU usage percentage
+    pub show_usage: bool,
+    /// Show memory usage
+    pub show_memory: bool,
+    /// Show temperature
+    pub show_temperature: bool,
+    /// Update interval in milliseconds
+    pub update_interval_ms: u64,
+}
+
+impl Default for GpuConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_usage: true,
+            show_memory: false,
+            show_temperature: false,
+            update_interval_ms: 2000,
+        }
+    }
+}
+
+/// Keyboard layout module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyboardLayoutConfig {
+    /// Enable keyboard layout module
+    pub enabled: bool,
+    /// Show full language name
+    pub show_full_name: bool,
+    /// Show flag emoji
+    pub show_flag: bool,
+    /// Auto-switch on window focus
+    pub auto_switch: bool,
+}
+
+impl Default for KeyboardLayoutConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_full_name: false,
+            show_flag: false,
+            auto_switch: false,
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BehaviorConfig {
     /// Auto-hide the bar
@@ -573,6 +643,78 @@ impl Default for HotkeyConfig {
             open_menu: Some("Alt+Space".to_string()),
             quick_search: Some("Alt+S".to_string()),
             toggle_theme: Some("Alt+D".to_string()),
+        }
+    }
+}
+
+/// Uptime module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UptimeConfig {
+    /// Enable uptime module
+    pub enabled: bool,
+    /// Show days in uptime
+    pub show_days: bool,
+    /// Use compact format (1d 2h vs 1 day, 2 hours)
+    pub compact_format: bool,
+    /// Show icon
+    pub show_icon: bool,
+}
+
+impl Default for UptimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_days: true,
+            compact_format: true,
+            show_icon: true,
+        }
+    }
+}
+
+/// Bluetooth module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BluetoothConfig {
+    /// Enable Bluetooth module
+    pub enabled: bool,
+    /// Show connected device count
+    pub show_device_count: bool,
+    /// Show connected device names
+    pub show_device_names: bool,
+}
+
+impl Default for BluetoothConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_device_count: true,
+            show_device_names: false,
+        }
+    }
+}
+
+/// Disk module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskConfig {
+    /// Enable disk module
+    pub enabled: bool,
+    /// Show usage percentage
+    pub show_percentage: bool,
+    /// Show activity indicator
+    pub show_activity: bool,
+    /// Primary disk to monitor (e.g., "C:")
+    pub primary_disk: String,
+    /// Update interval in milliseconds
+    pub update_interval_ms: u64,
+}
+
+impl Default for DiskConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_percentage: true,
+            show_activity: false,
+            primary_disk: "C:".to_string(),
+            update_interval_ms: 5000,
         }
     }
 }

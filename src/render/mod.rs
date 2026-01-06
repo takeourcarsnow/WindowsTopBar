@@ -286,7 +286,83 @@ impl Renderer {
                         hdc, x, bar_rect.height, &media_text, item_padding, theme, false
                     );
                     self.module_bounds.insert("media".to_string(), media_rect);
+                    x -= item_spacing;
                 }
+            }
+
+            // GPU usage
+            if right_modules.contains(&"gpu".to_string()) {
+                let gpu_text = self.module_registry
+                    .get("gpu")
+                    .map(|m| m.display_text(&*config))
+                    .unwrap_or_else(|| self.icons.get("gpu"));
+                let (text_width, _) = self.measure_text(hdc, &gpu_text);
+                x -= text_width + item_padding * 2;
+                let gpu_rect = self.draw_module_text(
+                    hdc, x, bar_rect.height, &gpu_text, item_padding, theme, false
+                );
+                self.module_bounds.insert("gpu".to_string(), gpu_rect);
+                x -= item_spacing;
+            }
+
+            // Keyboard layout
+            if right_modules.contains(&"keyboard_layout".to_string()) {
+                let keyboard_text = self.module_registry
+                    .get("keyboard_layout")
+                    .map(|m| m.display_text(&*config))
+                    .unwrap_or_else(|| "EN".to_string());
+                let (text_width, _) = self.measure_text(hdc, &keyboard_text);
+                x -= text_width + item_padding * 2;
+                let keyboard_rect = self.draw_module_text(
+                    hdc, x, bar_rect.height, &keyboard_text, item_padding, theme, false
+                );
+                self.module_bounds.insert("keyboard_layout".to_string(), keyboard_rect);
+                x -= item_spacing;
+            }
+
+            // System uptime
+            if right_modules.contains(&"uptime".to_string()) {
+                let uptime_text = self.module_registry
+                    .get("uptime")
+                    .map(|m| m.display_text(&*config))
+                    .unwrap_or_else(|| "0d 0h".to_string());
+                let (text_width, _) = self.measure_text(hdc, &uptime_text);
+                x -= text_width + item_padding * 2;
+                let uptime_rect = self.draw_module_text(
+                    hdc, x, bar_rect.height, &uptime_text, item_padding, theme, false
+                );
+                self.module_bounds.insert("uptime".to_string(), uptime_rect);
+                x -= item_spacing;
+            }
+
+            // Bluetooth
+            if right_modules.contains(&"bluetooth".to_string()) {
+                let bluetooth_text = self.module_registry
+                    .get("bluetooth")
+                    .map(|m| m.display_text(&*config))
+                    .unwrap_or_else(|| self.icons.get("bluetooth"));
+                let (text_width, _) = self.measure_text(hdc, &bluetooth_text);
+                x -= text_width + item_padding * 2;
+                let bluetooth_rect = self.draw_module_text(
+                    hdc, x, bar_rect.height, &bluetooth_text, item_padding, theme, false
+                );
+                self.module_bounds.insert("bluetooth".to_string(), bluetooth_rect);
+                x -= item_spacing;
+            }
+
+            // Disk usage
+            if right_modules.contains(&"disk".to_string()) {
+                let disk_text = self.module_registry
+                    .get("disk")
+                    .map(|m| m.display_text(&*config))
+                    .unwrap_or_else(|| self.icons.get("disk"));
+                let (text_width, _) = self.measure_text(hdc, &disk_text);
+                x -= text_width + item_padding * 2;
+                let disk_rect = self.draw_module_text(
+                    hdc, x, bar_rect.height, &disk_text, item_padding, theme, false
+                );
+                self.module_bounds.insert("disk".to_string(), disk_rect);
+                x -= item_spacing;
             }
 
             SelectObject(hdc, old_font);

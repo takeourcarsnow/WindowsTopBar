@@ -638,6 +638,11 @@ const MENU_SHOW_VOLUME: u32 = 1003;
 const MENU_SHOW_NETWORK: u32 = 1004;
 const MENU_SHOW_SYSINFO: u32 = 1005;
 const MENU_SHOW_MEDIA: u32 = 1006;
+const MENU_SHOW_GPU: u32 = 1007;
+const MENU_SHOW_KEYBOARD: u32 = 1008;
+const MENU_SHOW_UPTIME: u32 = 1009;
+const MENU_SHOW_BLUETOOTH: u32 = 1010;
+const MENU_SHOW_DISK: u32 = 1011;
 const MENU_SEPARATOR: u32 = 1100;
 const MENU_SETTINGS: u32 = 1200;
 const MENU_RELOAD: u32 = 1201;
@@ -665,6 +670,11 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, MENU_SHOW_NETWORK, "Network", right_modules.contains(&"network".to_string()));
         append_menu_item(menu, MENU_SHOW_SYSINFO, "System Info", right_modules.contains(&"system_info".to_string()));
         append_menu_item(menu, MENU_SHOW_MEDIA, "Media Controls", right_modules.contains(&"media".to_string()));
+        append_menu_item(menu, MENU_SHOW_GPU, "GPU Usage", right_modules.contains(&"gpu".to_string()));
+        append_menu_item(menu, MENU_SHOW_KEYBOARD, "Keyboard Layout", right_modules.contains(&"keyboard_layout".to_string()));
+        append_menu_item(menu, MENU_SHOW_UPTIME, "System Uptime", right_modules.contains(&"uptime".to_string()));
+        append_menu_item(menu, MENU_SHOW_BLUETOOTH, "Bluetooth", right_modules.contains(&"bluetooth".to_string()));
+        append_menu_item(menu, MENU_SHOW_DISK, "Disk Usage", right_modules.contains(&"disk".to_string()));
         
         // Separator
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
@@ -716,6 +726,11 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         MENU_SHOW_NETWORK => toggle_module(hwnd, "network"),
         MENU_SHOW_SYSINFO => toggle_module(hwnd, "system_info"),
         MENU_SHOW_MEDIA => toggle_module(hwnd, "media"),
+        MENU_SHOW_GPU => toggle_module(hwnd, "gpu"),
+        MENU_SHOW_KEYBOARD => toggle_module(hwnd, "keyboard_layout"),
+        MENU_SHOW_UPTIME => toggle_module(hwnd, "uptime"),
+        MENU_SHOW_BLUETOOTH => toggle_module(hwnd, "bluetooth"),
+        MENU_SHOW_DISK => toggle_module(hwnd, "disk"),
         MENU_SETTINGS => open_config_file(),
         MENU_RELOAD => reload_config(hwnd),
         MENU_EXIT => {
@@ -814,7 +829,10 @@ fn toggle_module(hwnd: HWND, module_id: &str) {
             info!("Disabled module: {}", module_id);
         } else {
             // Add it back at the appropriate position
-            let default_order = vec!["media", "system_info", "network", "volume", "battery", "clock"];
+            let default_order = vec![
+                "media", "keyboard_layout", "gpu", "system_info", "disk", 
+                "network", "bluetooth", "volume", "battery", "uptime", "clock"
+            ];
             let insert_pos = default_order.iter()
                 .position(|&m| m == module_id)
                 .map(|target_idx| {

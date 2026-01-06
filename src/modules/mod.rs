@@ -12,12 +12,16 @@ pub mod app_menu;
 pub mod active_window;
 pub mod media;
 pub mod weather;
+pub mod gpu;
+pub mod keyboard_layout;
+pub mod uptime;
+pub mod bluetooth;
+pub mod disk;
 
 use std::collections::HashMap;
 use windows::Win32::Graphics::Gdi::HDC;
 
 use crate::theme::Theme;
-use crate::utils::Rect;
 
 /// Trait for all topbar modules
 pub trait Module: Send + Sync {
@@ -83,10 +87,15 @@ impl ModuleRegistry {
             order_center: vec![],
             order_right: vec![
                 "media".to_string(),
+                "keyboard_layout".to_string(),
+                "gpu".to_string(),
                 "system_info".to_string(),
+                "disk".to_string(),
                 "network".to_string(),
+                "bluetooth".to_string(),
                 "volume".to_string(),
                 "battery".to_string(),
+                "uptime".to_string(),
                 "clock".to_string(),
             ],
         };
@@ -100,6 +109,13 @@ impl ModuleRegistry {
         registry.register(Box::new(app_menu::AppMenuModule::new()));
         registry.register(Box::new(active_window::ActiveWindowModule::new()));
         registry.register(Box::new(media::MediaModule::new()));
+        
+        // Register new modules
+        registry.register(Box::new(gpu::GpuModule::new()));
+        registry.register(Box::new(keyboard_layout::KeyboardLayoutModule::new()));
+        registry.register(Box::new(uptime::UptimeModule::new()));
+        registry.register(Box::new(bluetooth::BluetoothModule::new()));
+        registry.register(Box::new(disk::DiskModule::new()));
 
         registry
     }

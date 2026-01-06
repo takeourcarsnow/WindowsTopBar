@@ -96,6 +96,8 @@ impl Icons {
         icons.insert("cpu".to_string(), "⬡".to_string());
         icons.insert("memory".to_string(), "⬢".to_string());
         icons.insert("disk".to_string(), "💾".to_string());
+        icons.insert("gpu".to_string(), "🎮".to_string());
+        icons.insert("bluetooth".to_string(), "📶".to_string());
         
         Self { icons }
     }

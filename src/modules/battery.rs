@@ -112,19 +112,21 @@ impl BatteryModule {
     /// Get appropriate battery icon based on level
     fn get_battery_icon(&self) -> &'static str {
         if self.is_plugged_in && !self.is_charging {
-            "🔌"
+            "🔌"  // Plugged in but not charging (full)
         } else if self.is_charging {
-            "🔋"
-        } else if self.battery_percent >= 80 {
-            "🔋"
-        } else if self.battery_percent >= 60 {
-            "🔋"
-        } else if self.battery_percent >= 40 {
-            "🔋"
-        } else if self.battery_percent >= 20 {
-            "🪫"
+            "⚡"  // Charging
+        } else if self.battery_percent >= 90 {
+            "🔋"  // Full
+        } else if self.battery_percent >= 70 {
+            "🔋"  // High
+        } else if self.battery_percent >= 50 {
+            "🔋"  // Medium-high
+        } else if self.battery_percent >= 30 {
+            "🔋"  // Medium
+        } else if self.battery_percent >= 15 {
+            "🪫"  // Low
         } else {
-            "🪫"
+            "🪫"  // Critical - consider adding notification
         }
     }
 

@@ -1,10 +1,17 @@
-//! Volume module for audio control
+//! Volume module for audio control with Windows Core Audio API
 
 use std::time::Instant;
+use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+use windows::Win32::Media::Audio::{
+    IMMDeviceEnumerator, MMDeviceEnumerator, eRender, eConsole,
+};
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+};
 
 use super::Module;
 
-/// Volume module
+/// Volume module with real Windows audio integration
 pub struct VolumeModule {
     show_percentage: bool,
     scroll_to_change: bool,
@@ -13,6 +20,8 @@ pub struct VolumeModule {
     volume_level: u32,  // 0-100
     is_muted: bool,
     last_update: Instant,
+    com_initialized: bool,
+    output_device_name: String,
 }
 
 impl VolumeModule {
@@ -25,9 +34,21 @@ impl VolumeModule {
             volume_level: 50,
             is_muted: false,
             last_update: Instant::now(),
+            com_initialized: false,
+            output_device_name: String::new(),
         };
+        module.init_com();
         module.force_update();
         module
+    }
+
+    /// Initialize COM for audio APIs
+    fn init_com(&mut self) {
+        unsafe {
+            if CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() {
+                self.com_initialized = true;
+            }
+        }
     }
 
     /// Set whether to show percentage
@@ -50,22 +71,59 @@ impl VolumeModule {
         self.last_update = Instant::now();
     }
 
-    /// Get system volume using Windows Audio API
+    /// Get audio endpoint volume interface
+    fn get_audio_endpoint(&self) -> Option<IAudioEndpointVolume> {
+        unsafe {
+            let enumerator: IMMDeviceEnumerator = 
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+            
+            let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+            
+            let endpoint_volume: IAudioEndpointVolume = 
+                device.Activate(CLSCTX_ALL, None).ok()?;
+            
+            Some(endpoint_volume)
+        }
+    }
+
+    /// Get system volume using Windows Core Audio API
     fn get_system_volume(&mut self) {
-        // Using COM to access IAudioEndpointVolume
-        // This is a simplified version - full implementation would use proper COM
-        
-        // For now, we'll use a placeholder
-        // In a full implementation, you'd use:
-        // - CoInitialize
-        // - CoCreateInstance(CLSID_MMDeviceEnumerator)
-        // - GetDefaultAudioEndpoint
-        // - Activate IAudioEndpointVolume
-        // - GetMasterVolumeLevelScalar
-        
-        // Placeholder values
-        self.volume_level = 50;
-        self.is_muted = false;
+        if let Some(endpoint) = self.get_audio_endpoint() {
+            unsafe {
+                // Get volume level (0.0 - 1.0)
+                if let Ok(level) = endpoint.GetMasterVolumeLevelScalar() {
+                    self.volume_level = (level as f64 * 100.0).round() as u32;
+                }
+                
+                // Get mute state
+                if let Ok(muted) = endpoint.GetMute() {
+                    self.is_muted = muted.0 != 0;
+                }
+            }
+        }
+    }
+
+    /// Set system volume
+    fn set_system_volume(&mut self, level: u32) {
+        if let Some(endpoint) = self.get_audio_endpoint() {
+            unsafe {
+                let scalar = (level as f32 / 100.0).clamp(0.0, 1.0);
+                let _ = endpoint.SetMasterVolumeLevelScalar(scalar, std::ptr::null());
+                self.volume_level = level;
+                self.cached_text = self.build_display_text();
+            }
+        }
+    }
+
+    /// Set system mute
+    fn set_system_mute(&mut self, muted: bool) {
+        if let Some(endpoint) = self.get_audio_endpoint() {
+            unsafe {
+                let _ = endpoint.SetMute(muted, std::ptr::null());
+                self.is_muted = muted;
+                self.cached_text = self.build_display_text();
+            }
+        }
     }
 
     /// Build the display text
@@ -81,30 +139,28 @@ impl VolumeModule {
 
     /// Get volume icon based on level
     fn get_volume_icon(&self) -> &'static str {
-        if self.is_muted {
+        if self.is_muted || self.volume_level == 0 {
             "🔇"
-        } else if self.volume_level == 0 {
-            "🔇"
-        } else if self.volume_level < 33 {
+        } else if self.volume_level < 25 {
             "🔈"
-        } else if self.volume_level < 66 {
+        } else if self.volume_level < 50 {
+            "🔉"
+        } else if self.volume_level < 75 {
             "🔉"
         } else {
             "🔊"
         }
     }
 
-    /// Toggle mute
+    /// Toggle mute (now with real system integration)
     pub fn toggle_mute(&mut self) {
-        self.is_muted = !self.is_muted;
-        self.cached_text = self.build_display_text();
+        self.set_system_mute(!self.is_muted);
     }
 
-    /// Change volume
+    /// Change volume (now with real system integration)
     pub fn change_volume(&mut self, delta: i32) {
         let new_level = (self.volume_level as i32 + delta).clamp(0, 100) as u32;
-        self.volume_level = new_level;
-        self.cached_text = self.build_display_text();
+        self.set_system_volume(new_level);
     }
 
     /// Get volume level
@@ -115,6 +171,11 @@ impl VolumeModule {
     /// Check if muted
     pub fn is_muted(&self) -> bool {
         self.is_muted
+    }
+
+    /// Get output device name
+    pub fn output_device_name(&self) -> &str {
+        &self.output_device_name
     }
 }
 
@@ -144,14 +205,14 @@ impl Module for VolumeModule {
     }
 
     fn update(&mut self) {
-        // Update every 5 seconds
-        if self.last_update.elapsed().as_secs() >= 5 {
+        // Update every 2 seconds for more responsive volume tracking
+        if self.last_update.elapsed().as_secs() >= 2 {
             self.force_update();
         }
     }
 
     fn on_click(&mut self) {
-        // Toggle mute
+        // Toggle mute with real system integration
         self.toggle_mute();
     }
 
@@ -170,10 +231,7 @@ impl Module for VolumeModule {
     }
 
     fn tooltip(&self) -> Option<String> {
-        if self.is_muted {
-            Some(format!("Volume: {}% (Muted)", self.volume_level))
-        } else {
-            Some(format!("Volume: {}%", self.volume_level))
-        }
+        let status = if self.is_muted { " (Muted)" } else { "" };
+        Some(format!("Volume: {}%{}\nScroll to adjust, click to mute", self.volume_level, status))
     }
 }
