@@ -237,10 +237,12 @@ pub struct ClockConfig {
     pub show_seconds: bool,
     /// Show date
     pub show_date: bool,
-    /// Date format
-    pub date_format: String,
     /// Show day of week
     pub show_day: bool,
+    /// Center the clock in the bar
+    pub center: bool,
+    /// Date format
+    pub date_format: String,
 }
 
 impl Default for ClockConfig {
@@ -249,8 +251,9 @@ impl Default for ClockConfig {
             format_24h: false,
             show_seconds: false,
             show_date: true,
-            date_format: "%a, %b %d".to_string(),  // Include day name: "Tue, Jan 7"
             show_day: true,
+            center: false,
+            date_format: "%a, %b %d".to_string(),  // Include day name: "Tue, Jan 7"
         }
     }
 }

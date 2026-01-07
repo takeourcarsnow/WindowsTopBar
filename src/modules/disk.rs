@@ -40,6 +40,16 @@ impl DiskModule {
     /// Force an immediate update
     fn force_update(&mut self, config: &crate::config::Config) {
         self.query_disk_info();
+
+        // Respect configured primary disk if present (match by mount point or name)
+        if !config.modules.disk.primary_disk.is_empty() {
+            if let Some(pos) = self.disks.iter().position(|d| {
+                d.mount_point.starts_with(&config.modules.disk.primary_disk) || d.name == config.modules.disk.primary_disk
+            }) {
+                self.primary_disk_index = pos;
+            }
+        }
+
         self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
     }

@@ -193,6 +193,67 @@ impl Renderer {
                 self.module_bounds.insert("active_app".to_string(), app_rect);
             }
 
+            // === CENTER SECTION ===
+            let mut center_list = config.modules.center_modules.clone();
+            // If clock has explicit center flag, ensure it's in the center list
+            if config.modules.clock.center && !center_list.iter().any(|m| m == "clock") {
+                center_list.push("clock".to_string());
+            }
+
+            if !center_list.is_empty() {
+                // First compute widths for all center items
+                let mut total_width = 0;
+                let mut center_widths: Vec<(String, i32)> = Vec::new();
+                for id in center_list.iter() {
+                    if dragging.as_deref() == Some(id.as_str()) { continue; }
+                    let w = match id.as_str() {
+                        "clock" => {
+                            let clock_text = self.module_registry
+                                .get("clock")
+                                .map(|m| m.display_text(&*config))
+                                .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
+                            let (tw, _) = self.measure_text(hdc, &clock_text);
+                            tw + item_padding * 2
+                        }
+                        _ => {
+                            // Default measurement for text modules
+                            let text = self.module_registry
+                                .get(id.as_str())
+                                .map(|m| m.display_text(&*config))
+                                .unwrap_or_default();
+                            let (tw, _) = self.measure_text(hdc, &text);
+                            tw + item_padding * 2
+                        }
+                    };
+                    center_widths.push((id.clone(), w));
+                    total_width += w + item_spacing;
+                }
+
+                if total_width > 0 {
+                    total_width = total_width.saturating_sub(item_spacing); // remove trailing spacing
+                    let mut cx = (bar_rect.width - total_width) / 2;
+                    for (id, w) in center_widths.iter() {
+                        // Draw each center item
+                        if id == "clock" {
+                            let clock_text = self.module_registry
+                                .get("clock")
+                                .map(|m| m.display_text(&*config))
+                                .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
+                            let rect = self.draw_module_text(hdc, cx, bar_rect.height, &clock_text, item_padding, theme, false);
+                            self.module_bounds.insert("clock".to_string(), rect);
+                        } else {
+                            let text = self.module_registry
+                                .get(id.as_str())
+                                .map(|m| m.display_text(&*config))
+                                .unwrap_or_default();
+                            let rect = self.draw_module_text(hdc, cx, bar_rect.height, &text, item_padding, theme, false);
+                            self.module_bounds.insert(id.clone(), rect);
+                        }
+                        cx += w + item_spacing;
+                    }
+                }
+            }
+
             // === RIGHT SECTION (draw right-to-left based on config order) ===
             x = bar_rect.width - padding;
 

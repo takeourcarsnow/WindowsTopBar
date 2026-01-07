@@ -967,6 +967,75 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         // Disk settings
         DISK_SHOW_PERCENTAGE => toggle_config_bool(hwnd, |c| &mut c.modules.disk.show_percentage),
         DISK_SHOW_ACTIVITY => toggle_config_bool(hwnd, |c| &mut c.modules.disk.show_activity),
+
+        // Center clock toggle (moves between right and center sections)
+        CLOCK_CENTER => {
+            if let Some(state) = get_window_state() {
+                let config = state.read().config.clone();
+                let mut new_config = (*config).clone();
+                if new_config.modules.center_modules.iter().any(|m| m == "clock") {
+                    // Remove from center, add back to right at default position
+                    new_config.modules.center_modules.retain(|m| m != "clock");
+                    if !new_config.modules.right_modules.iter().any(|m| m == "clock") {
+                        let default_order = vec!["media", "keyboard_layout", "gpu", "system_info", "disk", "network", "bluetooth", "volume", "battery", "uptime", "clock"];
+                        let insert_pos = default_order.iter()
+                            .position(|&m| m == "clock")
+                            .map(|target_idx| {
+                                new_config.modules.right_modules.iter()
+                                    .position(|m| {
+                                        default_order.iter()
+                                            .position(|&dm| dm == m.as_str())
+                                            .map(|existing_idx| existing_idx > target_idx)
+                                            .unwrap_or(false)
+                                    })
+                                    .unwrap_or(new_config.modules.right_modules.len())
+                            })
+                            .unwrap_or(new_config.modules.right_modules.len());
+                        new_config.modules.right_modules.insert(insert_pos, "clock".to_string());
+                    }
+                } else {
+                    // Add to center and remove from right
+                    new_config.modules.center_modules.push("clock".to_string());
+                    new_config.modules.right_modules.retain(|m| m != "clock");
+                }
+
+                if let Err(e) = new_config.save() {
+                    warn!("Failed to save config: {}", e);
+                }
+                state.write().config = Arc::new(new_config);
+                unsafe { let _ = InvalidateRect(hwnd, None, true); }
+            }
+        },
+
+        // Disk dynamic selection range
+        cmd if (cmd >= DISK_SELECT_BASE && cmd < DISK_SELECT_BASE + 100) => {
+            let idx = (cmd - DISK_SELECT_BASE) as usize;
+            if let Some(state) = get_window_state() {
+                // Get disks from renderer
+                let mut selected_mount: Option<String> = None;
+                with_renderer(|renderer| {
+                    if let Some(module) = renderer.module_registry.get("disk") {
+                        if let Some(dm) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
+                            if idx < dm.get_disks().len() {
+                                let d = &dm.get_disks()[idx];
+                                selected_mount = Some(d.mount_point.clone());
+                            }
+                        }
+                    }
+                });
+
+                if let Some(mount) = selected_mount {
+                    let config = state.read().config.clone();
+                    let mut new_config = (*config).clone();
+                    new_config.modules.disk.primary_disk = mount;
+                    if let Err(e) = new_config.save() {
+                        warn!("Failed to save config: {}", e);
+                    }
+                    state.write().config = Arc::new(new_config);
+                    unsafe { let _ = InvalidateRect(hwnd, None, true); }
+                }
+            }
+        },
         
         // App menu
         APP_ABOUT => show_about_dialog(),
@@ -1190,6 +1259,11 @@ const BLUETOOTH_SHOW_COUNT: u32 = 2902;
 // Menu IDs for disk
 const DISK_SHOW_PERCENTAGE: u32 = 3001;
 const DISK_SHOW_ACTIVITY: u32 = 3002;
+// Disk selection base (dynamic entries)
+const DISK_SELECT_BASE: u32 = 3100;
+
+// Clock center toggle
+const CLOCK_CENTER: u32 = 2005; 
 
 // Menu IDs for app menu
 const APP_ABOUT: u32 = 2501;
@@ -1210,6 +1284,7 @@ fn show_clock_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, CLOCK_SECONDS, "Show Seconds", config.modules.clock.show_seconds);
         append_menu_item(menu, CLOCK_DATE, "Show Date", config.modules.clock.show_date);
         append_menu_item(menu, CLOCK_DAY, "Show Day of Week", config.modules.clock.show_day);
+        append_menu_item(menu, CLOCK_CENTER, "Center Clock", config.modules.clock.center);
         
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
@@ -1285,6 +1360,48 @@ fn show_network_menu(hwnd: HWND, x: i32, y: i32) {
         DestroyMenu(menu).ok();
         
         info!("Network menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_disk_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+
+        // Add dynamic list of disks
+        let mut disks: Vec<(String,String)> = Vec::new(); // (display, mount)
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get("disk") {
+                if let Some(dm) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
+                    for d in dm.get_disks() {
+                        let label = if d.mount_point.is_empty() { d.name.clone() } else { d.mount_point.clone() };
+                        disks.push((label, d.mount_point.clone()));
+                    }
+                }
+            }
+        });
+
+        let config = get_window_state()
+            .map(|s| s.read().config.clone())
+            .unwrap_or_default();
+
+        for (i, (label, mount)) in disks.iter().enumerate() {
+            let id = DISK_SELECT_BASE + i as u32;
+            append_menu_item(menu, id, label, mount == &config.modules.disk.primary_disk);
+        }
+
+        AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
+        append_menu_item(menu, DISK_SHOW_PERCENTAGE, "Show Percentage", config.modules.disk.show_percentage);
+        append_menu_item(menu, DISK_SHOW_ACTIVITY, "Show Activity", config.modules.disk.show_activity);
+
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+
+        info!("Disk menu returned cmd: {}", cmd.0);
         if cmd.0 != 0 {
             handle_menu_command(hwnd, cmd.0 as u32);
         }
@@ -1432,25 +1549,4 @@ fn show_bluetooth_menu(hwnd: HWND, x: i32, y: i32) {
     }
 }
 
-fn show_disk_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() { return; }
-        
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
-        
-        append_menu_item(menu, DISK_SHOW_PERCENTAGE, "Show Usage Percentage", config.modules.disk.show_percentage);
-        append_menu_item(menu, DISK_SHOW_ACTIVITY, "Show Activity Indicator", config.modules.disk.show_activity);
-        
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
-        DestroyMenu(menu).ok();
-        
-        info!("Disk menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
-    }
-}
+
