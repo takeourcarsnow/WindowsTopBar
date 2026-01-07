@@ -184,7 +184,9 @@ impl WindowManager {
         // Force a weather refresh so icons update immediately after migration
         with_renderer(|renderer| {
             if let Some(module) = renderer.module_registry.get_mut("weather") {
-                if let Some(wm) = module.as_any_mut().downcast_mut::<crate::modules::weather::WeatherModule>() {
+                if let Some(wm) = module
+                    .as_any_mut()
+                    .downcast_mut::<crate::modules::weather::WeatherModule>() {
                     wm.refresh();
                 }
             }
@@ -889,8 +891,7 @@ unsafe extern "system" fn window_proc(
                             if let Some(module) = renderer.module_registry.get_mut("bluetooth") {
                                 if let Some(bm) = module
                                     .as_any_mut()
-                                    .downcast_mut::<crate::modules::bluetooth::BluetoothModule>(
-                                ) {
+                                    .downcast_mut::<crate::modules::bluetooth::BluetoothModule>() {
                                     bm.refresh();
                                 }
                             }
@@ -1154,8 +1155,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                     // Cast to VolumeModule to access toggle_mute
                     if let Some(volume_module) = module
                         .as_any_mut()
-                        .downcast_mut::<crate::modules::volume::VolumeModule>(
-                    ) {
+                        .downcast_mut::<crate::modules::volume::VolumeModule>() {
                         volume_module.toggle_mute();
                     }
                 }
@@ -2079,7 +2079,10 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
         let mut lines: Vec<String> = Vec::new();
         with_renderer(|renderer| {
             if let Some(module) = renderer.module_registry.get("weather") {
-                if let Some(wm) = module.as_any().downcast_ref::<crate::modules::weather::WeatherModule>() {
+                if let Some(wm) = module
+                    .as_any()
+                    .downcast_ref::<crate::modules::weather::WeatherModule>()
+                {
                     if let Some(data) = wm.weather_data() {
                         if data.forecast.is_empty() {
                             lines.push("No forecast available".to_string());
@@ -2089,7 +2092,10 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
                                 let max = fc.max;
                                 let min = fc.min;
                                 let icon = fc.condition.icon();
-                                let label = format!("{} {} {:.0}°C / {:.0}°C - {}", fc.date, icon, max, min, fc.description);
+                                let label = format!(
+                                    "{} {} {:.0}°C / {:.0}°C - {}",
+                                    fc.date, icon, max, min, fc.description
+                                );
                                 lines.push(label);
                             }
                         }
@@ -2103,7 +2109,9 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
         } else {
             for (i, l) in lines.iter().enumerate() {
                 // Cap to reasonable number
-                if i >= 6 { break; }
+                if i >= 6 {
+                    break;
+                }
                 append_menu_item(menu, WEATHER_OPEN + i as u32, &l, false);
             }
             AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
@@ -2136,7 +2144,9 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
                 WEATHER_REFRESH => {
                     with_renderer(|renderer| {
                         if let Some(module) = renderer.module_registry.get_mut("weather") {
-                            if let Some(wm) = module.as_any_mut().downcast_mut::<crate::modules::weather::WeatherModule>() {
+                            if let Some(wm) = module
+                                .as_any_mut()
+                                .downcast_mut::<crate::modules::weather::WeatherModule>() {
                                 wm.refresh();
                             }
                         }
