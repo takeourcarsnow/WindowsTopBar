@@ -448,11 +448,8 @@ impl Renderer {
                                                 x_pos += step as i32;
                                             }
 
-                                            let pen = CreatePen(
-                                                PS_SOLID,
-                                                2,
-                                                theme.cpu_normal.colorref(),
-                                            );
+                                            let pen =
+                                                CreatePen(PS_SOLID, 2, theme.cpu_normal.colorref());
                                             let old_pen = SelectObject(hdc, pen);
                                             if let Some((sx, sy)) = points.first() {
                                                 let _ = MoveToEx(

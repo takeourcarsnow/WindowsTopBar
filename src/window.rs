@@ -669,8 +669,7 @@ unsafe extern "system" fn window_proc(
                         let bounds = renderer.module_bounds().clone();
 
                         // Determine visual order for the origin side
-                        let visual_list = if let Some(side) = &s.drag_origin_side
-                        {
+                        let visual_list = if let Some(side) = &s.drag_origin_side {
                             if side == "left" {
                                 s.config.modules.left_modules.clone()
                             } else {
