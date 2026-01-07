@@ -215,7 +215,7 @@ impl DropdownMenu {
     pub fn hide(&self) {
         unsafe {
             ReleaseCapture().ok();
-            ShowWindow(self.hwnd, SW_HIDE);
+            let _ = ShowWindow(self.hwnd, SW_HIDE);
         }
     }
 
@@ -233,12 +233,12 @@ impl DropdownMenu {
             // Draw background
             let bg_brush = CreateSolidBrush(self.theme.background_secondary.to_colorref());
             FillRect(hdc, &rect, bg_brush);
-            DeleteObject(bg_brush);
+            let _ = DeleteObject(bg_brush);
 
             // Draw border
             let border_brush = CreateSolidBrush(self.theme.border.to_colorref());
             FrameRect(hdc, &rect, border_brush);
-            DeleteObject(border_brush);
+            let _ = DeleteObject(border_brush);
 
             // Draw items
             let mut y = self.padding;
@@ -259,7 +259,7 @@ impl DropdownMenu {
                     };
                     let sep_brush = CreateSolidBrush(self.theme.border.to_colorref());
                     FillRect(hdc, &sep_rect, sep_brush);
-                    DeleteObject(sep_brush);
+                    let _ = DeleteObject(sep_brush);
                     y += 9;
                 } else {
                     // Draw item
@@ -275,7 +275,7 @@ impl DropdownMenu {
                         let hover_brush = CreateSolidBrush(self.theme.accent.to_colorref());
                         let rounded_rect = item_rect;
                         FillRect(hdc, &rounded_rect, hover_brush);
-                        DeleteObject(hover_brush);
+                        let _ = DeleteObject(hover_brush);
 
                         SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
                     } else {
@@ -291,13 +291,13 @@ impl DropdownMenu {
                     let text_x = self.padding + 8;
                     if let Some(ref icon) = item.icon {
                         let icon_wide: Vec<u16> = icon.encode_utf16().chain(std::iter::once(0)).collect();
-                        TextOutW(hdc, text_x, y + 4, &icon_wide[..icon_wide.len()-1]);
+                        let _ = TextOutW(hdc, text_x, y + 4, &icon_wide[..icon_wide.len()-1]);
                     }
 
                     // Draw label
                     let label_x = text_x + 24;
                     let label_wide: Vec<u16> = item.label.encode_utf16().chain(std::iter::once(0)).collect();
-                    TextOutW(hdc, label_x, y + 5, &label_wide[..label_wide.len()-1]);
+                    let _ = TextOutW(hdc, label_x, y + 5, &label_wide[..label_wide.len()-1]);
 
                     // Draw shortcut
                     if let Some(ref shortcut) = item.shortcut {
@@ -305,22 +305,22 @@ impl DropdownMenu {
                         let shortcut_wide: Vec<u16> = shortcut.encode_utf16().chain(std::iter::once(0)).collect();
                         
                         let mut size = windows::Win32::Foundation::SIZE::default();
-                        GetTextExtentPoint32W(hdc, &shortcut_wide[..shortcut_wide.len()-1], &mut size);
+                        let _ = GetTextExtentPoint32W(hdc, &shortcut_wide[..shortcut_wide.len()-1], &mut size);
                         
-                        TextOutW(hdc, item_rect.right - size.cx - 8, y + 5, &shortcut_wide[..shortcut_wide.len()-1]);
+                        let _ = TextOutW(hdc, item_rect.right - size.cx - 8, y + 5, &shortcut_wide[..shortcut_wide.len()-1]);
                     }
 
                     // Draw submenu arrow
                     if item.submenu.is_some() {
                         SetTextColor(hdc, self.theme.text_secondary.to_colorref());
                         let arrow: Vec<u16> = "▶".encode_utf16().chain(std::iter::once(0)).collect();
-                        TextOutW(hdc, item_rect.right - 16, y + 5, &arrow[..arrow.len()-1]);
+                        let _ = TextOutW(hdc, item_rect.right - 16, y + 5, &arrow[..arrow.len()-1]);
                     }
 
                     // Draw checkmark
                     if item.is_checked {
                         let check: Vec<u16> = "✓".encode_utf16().chain(std::iter::once(0)).collect();
-                        TextOutW(hdc, self.padding, y + 5, &check[..check.len()-1]);
+                        let _ = TextOutW(hdc, self.padding, y + 5, &check[..check.len()-1]);
                     }
 
                     y += self.item_height;
@@ -328,7 +328,7 @@ impl DropdownMenu {
             }
 
             SelectObject(hdc, old_font);
-            DeleteObject(font);
+            let _ = DeleteObject(font);
         }
     }
 
@@ -394,9 +394,9 @@ unsafe extern "system" fn dropdown_proc(
             // For now, just fill with a color
             let brush = CreateSolidBrush(COLORREF(0x2D2D2D));
             FillRect(hdc, &ps.rcPaint, brush);
-            DeleteObject(brush);
+            let _ = DeleteObject(brush);
             
-            EndPaint(hwnd, &ps);
+            let _ = EndPaint(hwnd, &ps);
             LRESULT(0)
         }
 
@@ -409,13 +409,13 @@ unsafe extern "system" fn dropdown_proc(
         WM_LBUTTONUP => {
             // Handle selection
             ReleaseCapture().ok();
-            ShowWindow(hwnd, SW_HIDE);
+            let _ = ShowWindow(hwnd, SW_HIDE);
             LRESULT(0)
         }
 
         WM_CAPTURECHANGED => {
             // Lost capture, close menu
-            ShowWindow(hwnd, SW_HIDE);
+            let _ = ShowWindow(hwnd, SW_HIDE);
             LRESULT(0)
         }
 
@@ -424,7 +424,7 @@ unsafe extern "system" fn dropdown_proc(
             match vk {
                 0x1B => {  // VK_ESCAPE
                     ReleaseCapture().ok();
-                    ShowWindow(hwnd, SW_HIDE);
+                    let _ = ShowWindow(hwnd, SW_HIDE);
                 }
                 _ => {}
             }

@@ -314,7 +314,7 @@ impl TrayMenu {
             let mut pt = POINT::default();
             GetCursorPos(&mut pt).ok()?;
 
-            SetForegroundWindow(hwnd);
+            let _ = SetForegroundWindow(hwnd);
 
             let cmd = TrackPopupMenu(
                 menu,

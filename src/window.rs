@@ -323,7 +323,7 @@ impl WindowManager {
     /// Show the window
     pub fn show(&self) {
         unsafe {
-            ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
+            let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
             self.state.write().is_visible = true;
         }
     }
@@ -331,7 +331,7 @@ impl WindowManager {
     /// Hide the window
     pub fn hide(&self) {
         unsafe {
-            ShowWindow(self.hwnd, SW_HIDE);
+            let _ = ShowWindow(self.hwnd, SW_HIDE);
             self.state.write().is_visible = false;
         }
     }
@@ -389,7 +389,7 @@ impl WindowManager {
             SetTimer(self.hwnd, 3, 100, None);   // 100ms timer for animations
 
             while GetMessageW(&mut msg, None, 0, 0).into() {
-                TranslateMessage(&msg);
+                let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
         }
@@ -433,7 +433,7 @@ unsafe extern "system" fn window_proc(
                     renderer.paint(hdc, &bar_rect, &theme);
                 });
                 
-                EndPaint(hwnd, &ps);
+                let _ = EndPaint(hwnd, &ps);
                 
                 if let Some(state) = get_window_state() {
                     state.write().needs_redraw = false;
@@ -534,7 +534,7 @@ unsafe extern "system" fn window_proc(
             
             // Get screen coordinates
             let mut pt = windows::Win32::Foundation::POINT { x, y };
-            ClientToScreen(hwnd, &mut pt);
+            let _ = ClientToScreen(hwnd, &mut pt);
             
             // Show context menu
             show_context_menu(hwnd, pt.x, pt.y);
@@ -981,7 +981,7 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
     // Get screen position for dropdown
     let mut pt = windows::Win32::Foundation::POINT { x: click_x, y: 28 };
     unsafe {
-        ClientToScreen(hwnd, &mut pt);
+        let _ = ClientToScreen(hwnd, &mut pt);
     }
     
     match module_id {

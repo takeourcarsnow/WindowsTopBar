@@ -62,10 +62,10 @@ impl Renderer {
             unsafe {
                 // Clean up old buffer
                 if !self.back_buffer.is_invalid() {
-                    DeleteDC(self.back_buffer);
+                    let _ = DeleteDC(self.back_buffer);
                 }
                 if !self.back_bitmap.is_invalid() {
-                    DeleteObject(self.back_bitmap);
+                    let _ = DeleteObject(self.back_bitmap);
                 }
 
                 // Create new buffer
@@ -90,7 +90,7 @@ impl Renderer {
         
         // Copy to screen
         unsafe {
-            BitBlt(
+            let _ = BitBlt(
                 hdc,
                 0, 0,
                 bar_rect.width, bar_rect.height,
@@ -112,7 +112,7 @@ impl Renderer {
                 bottom: rect.height,
             };
             FillRect(hdc, &win_rect, brush);
-            DeleteObject(brush);
+            let _ = DeleteObject(brush);
 
             // Draw subtle bottom border
             let border_brush = CreateSolidBrush(theme.border.to_colorref());
@@ -123,7 +123,7 @@ impl Renderer {
                 bottom: rect.height,
             };
             FillRect(hdc, &border_rect, border_brush);
-            DeleteObject(border_brush);
+            let _ = DeleteObject(border_brush);
         }
     }
 
@@ -271,7 +271,7 @@ impl Renderer {
                         let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
                         let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
                         FillRect(hdc, &r, bg_brush);
-                        DeleteObject(bg_brush);
+                        let _ = DeleteObject(bg_brush);
 
                         if let Some(module) = self.module_registry.get("system_info") {
                             if let Some(values) = module.graph_values() {
@@ -293,13 +293,13 @@ impl Renderer {
                                     let pen = CreatePen(PS_SOLID, 2, theme.cpu_normal.to_colorref());
                                     let old_pen = SelectObject(hdc, pen);
                                     if let Some((sx, sy)) = points.first() {
-                                        MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                        let _ = MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
                                         for (px, py) in points.iter().skip(1) {
-                                            LineTo(hdc, *px, *py);
+                                            let _ = LineTo(hdc, *px, *py);
                                         }
                                     }
                                     let _ = SelectObject(hdc, old_pen);
-                                    DeleteObject(pen);
+                                    let _ = DeleteObject(pen);
                                 }
                             }
                         }
@@ -354,7 +354,7 @@ impl Renderer {
                         let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
                         let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
                         FillRect(hdc, &r, bg_brush);
-                        DeleteObject(bg_brush);
+                        let _ = DeleteObject(bg_brush);
 
                         // Get history and draw polyline
                         if let Some(module) = self.module_registry.get("gpu") {
@@ -379,13 +379,13 @@ impl Renderer {
                                     let old_pen = SelectObject(hdc, pen);
                                     // Move to first
                                     if let Some((sx, sy)) = points.first() {
-                                        MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                        let _ = MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
                                         for (px, py) in points.iter().skip(1) {
-                                            LineTo(hdc, *px, *py);
+                                            let _ = LineTo(hdc, *px, *py);
                                         }
                                     }
                                     let _ = SelectObject(hdc, old_pen);
-                                    DeleteObject(pen);
+                                    let _ = DeleteObject(pen);
                                 }
                             }
                         }
@@ -469,8 +469,8 @@ impl Renderer {
             }
 
             SelectObject(hdc, old_font);
-            DeleteObject(font);
-            DeleteObject(bold_font);
+            let _ = DeleteObject(font);
+            let _ = DeleteObject(bold_font);
         }
     }
 
@@ -501,7 +501,7 @@ impl Renderer {
                     bottom: y + height,
                 };
                 FillRect(hdc, &rect, brush);
-                DeleteObject(brush);
+                let _ = DeleteObject(brush);
             }
 
             // Draw text
@@ -543,7 +543,7 @@ impl Renderer {
         unsafe {
             let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
             let mut size = windows::Win32::Foundation::SIZE::default();
-            GetTextExtentPoint32W(hdc, &wide[..wide.len()-1], &mut size);
+            let _ = GetTextExtentPoint32W(hdc, &wide[..wide.len()-1], &mut size);
             (size.cx, size.cy)
         }
     }
@@ -552,7 +552,7 @@ impl Renderer {
     fn draw_text(&self, hdc: HDC, x: i32, y: i32, text: &str) {
         unsafe {
             let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-            TextOutW(hdc, x, y, &wide[..wide.len()-1]);
+            let _ = TextOutW(hdc, x, y, &wide[..wide.len()-1]);
         }
     }
 
@@ -601,10 +601,10 @@ impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
             if !self.back_buffer.is_invalid() {
-                DeleteDC(self.back_buffer);
+                let _ = DeleteDC(self.back_buffer);
             }
             if !self.back_bitmap.is_invalid() {
-                DeleteObject(self.back_bitmap);
+                let _ = DeleteObject(self.back_bitmap);
             }
         }
     }
