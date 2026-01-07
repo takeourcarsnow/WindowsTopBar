@@ -151,13 +151,13 @@ impl Renderer {
         // First update all modules to get fresh data
         self.module_registry.update_all(&config);
         
-        let padding = self.scale(8);
-        let item_spacing = self.scale(4);
-        let item_padding = self.scale(8);
+        let padding = self.scale(10);  // More breathing room
+        let item_spacing = self.scale(6);  // Better spacing between modules
+        let item_padding = self.scale(10);  // Larger touch targets
 
-        // Create font
-        let font = self.create_font("Segoe UI Variable", self.scale(13), false);
-        let bold_font = self.create_font("Segoe UI Variable", self.scale(13), true);
+        // Create font - use Variable Text for optimal readability at UI sizes
+        let font = self.create_font("Segoe UI Variable Text", self.scale(13), false);
+        let bold_font = self.create_font("Segoe UI Variable Display", self.scale(13), true);
 
         unsafe {
             let old_font = SelectObject(hdc, font);
@@ -474,7 +474,7 @@ impl Renderer {
         }
     }
 
-    /// Draw a module button with hover effect
+    /// Draw a module button with modern hover effect
     fn draw_module_button(
         &self,
         hdc: HDC,
@@ -487,24 +487,24 @@ impl Renderer {
     ) -> Rect {
         let (text_width, text_height) = self.measure_text(hdc, text);
         let width = text_width + padding * 2;
-        let height = text_height + padding;
+        let height = text_height + padding + 4;  // Slightly taller for better tap targets
         let y = (bar_height - height) / 2;
 
         unsafe {
-            // Draw background on hover
+            // Draw subtle rounded background on hover
             if is_hovered {
                 let brush = CreateSolidBrush(theme.background_hover.to_colorref());
                 let rect = windows::Win32::Foundation::RECT {
-                    left: x,
-                    top: y,
-                    right: x + width,
-                    bottom: y + height,
+                    left: x + 2,  // Slight inset for visual softness
+                    top: y + 1,
+                    right: x + width - 2,
+                    bottom: y + height - 1,
                 };
                 FillRect(hdc, &rect, brush);
                 let _ = DeleteObject(brush);
             }
 
-            // Draw text
+            // Draw text with proper color
             SetTextColor(hdc, theme.text_primary.to_colorref());
             let text_y = (bar_height - text_height) / 2;
             self.draw_text(hdc, x + padding, text_y, text);
@@ -513,7 +513,7 @@ impl Renderer {
         Rect::new(x, y, width, height)
     }
 
-    /// Draw module text
+    /// Draw module text with improved layout
     fn draw_module_text(
         &self,
         hdc: HDC,
@@ -526,11 +526,13 @@ impl Renderer {
     ) -> Rect {
         let (text_width, text_height) = self.measure_text(hdc, text);
         let width = text_width + padding * 2;
-        let height = text_height + padding;
+        let height = text_height + padding + 2;  // Balanced height
         let y = (bar_height - height) / 2;
 
         unsafe {
+            // Use primary text color for good contrast
             SetTextColor(hdc, theme.text_primary.to_colorref());
+            // Center text vertically with slight adjustment for visual balance
             let text_y = (bar_height - text_height) / 2;
             self.draw_text(hdc, x + padding, text_y, text);
         }
@@ -556,18 +558,20 @@ impl Renderer {
         }
     }
 
-    /// Create a font
+    /// Create a font with optimized rendering for Windows 11
     fn create_font(&self, family: &str, size: i32, bold: bool) -> HFONT {
         unsafe {
             let family_wide: Vec<u16> = family.encode_utf16().chain(std::iter::once(0)).collect();
             let mut lf = LOGFONTW::default();
             lf.lfHeight = -size;
-            lf.lfWeight = if bold { FW_SEMIBOLD.0 as i32 } else { FW_NORMAL.0 as i32 };
+            // Use medium weight for regular text, semibold for emphasis
+            lf.lfWeight = if bold { FW_SEMIBOLD.0 as i32 } else { FW_MEDIUM.0 as i32 };
             lf.lfCharSet = DEFAULT_CHARSET;
-            lf.lfOutPrecision = OUT_TT_PRECIS;
+            lf.lfOutPrecision = OUT_TT_PRECIS;  // TrueType preferred
             lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf.lfQuality = CLEARTYPE_QUALITY;
+            lf.lfQuality = CLEARTYPE_QUALITY;  // Best text rendering
             lf.lfPitchAndFamily = VARIABLE_PITCH.0 | FF_SWISS.0;
+            // Enable antialiasing for smooth edges
             
             let face_len = family_wide.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family_wide[..face_len]);

@@ -107,11 +107,11 @@ impl DropdownMenu {
         // Register window class if needed
         Self::ensure_class_registered()?;
 
-        let item_height = 28;
-        let padding = 8;
+        let item_height = 36;  // Taller items for better touch targets
+        let padding = 10;  // More breathing room
         
         // Calculate menu size
-        let width = 250;
+        let width = 280;  // Wider for modern look
         let height = Self::calculate_height(&items, item_height, padding);
 
         // Create popup window
@@ -171,7 +171,7 @@ impl DropdownMenu {
         let mut height = padding * 2;
         for item in items {
             if item.is_separator {
-                height += 9;  // Separator height
+                height += 13;  // Taller separator with margins
             } else {
                 height += item_height;
             }
@@ -183,20 +183,21 @@ impl DropdownMenu {
     pub fn show_at(&mut self, x: i32, y: i32) {
         unsafe {
             // Get menu size
-            let width = 250;
+            let width = 280;  // Match new width
             let height = Self::calculate_height(&self.items, self.item_height, self.padding);
 
-            // Adjust position to keep on screen
+            // Adjust position to keep on screen with margin
             let screen_width = GetSystemMetrics(SM_CXSCREEN);
             let screen_height = GetSystemMetrics(SM_CYSCREEN);
+            let margin = 8;  // Screen edge margin
 
             let mut final_x = x;
             let mut final_y = y;
 
-            if x + width > screen_width {
-                final_x = screen_width - width;
+            if x + width > screen_width - margin {
+                final_x = screen_width - width - margin;
             }
-            if y + height > screen_height {
+            if y + height > screen_height - margin {
                 final_y = y - height;
             }
 
@@ -251,17 +252,17 @@ impl DropdownMenu {
 
             for (index, item) in self.items.iter().enumerate() {
                 if item.is_separator {
-                    // Draw separator line
+                    // Draw separator line with proper margins
                     let sep_rect = RECT {
-                        left: self.padding,
-                        top: y + 4,
-                        right: rect.right - self.padding,
-                        bottom: y + 5,
+                        left: self.padding + 8,
+                        top: y + 6,
+                        right: rect.right - self.padding - 8,
+                        bottom: y + 7,
                     };
                     let sep_brush = CreateSolidBrush(self.theme.border.to_colorref());
                     FillRect(hdc, &sep_rect, sep_brush);
                     let _ = DeleteObject(sep_brush);
-                    y += 9;
+                    y += 13;  // Match new separator height
                 } else {
                     // Draw item
                     let item_rect = RECT {
@@ -336,12 +337,13 @@ impl DropdownMenu {
     /// Create a font
     fn create_font(&self, size: i32, bold: bool) -> HFONT {
         unsafe {
-            let family: Vec<u16> = "Segoe UI Variable".encode_utf16().chain(std::iter::once(0)).collect();
+            let family: Vec<u16> = "Segoe UI Variable Text".encode_utf16().chain(std::iter::once(0)).collect();
             let mut lf = LOGFONTW::default();
-            lf.lfHeight = -size;
+            lf.lfHeight = -size - 1;  // Slightly larger for readability
             lf.lfWeight = if bold { FW_SEMIBOLD.0 as i32 } else { FW_NORMAL.0 as i32 };
             lf.lfCharSet = DEFAULT_CHARSET;
             lf.lfQuality = CLEARTYPE_QUALITY;
+            lf.lfOutPrecision = OUT_TT_PRECIS;
             
             let face_len = family.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family[..face_len]);
@@ -355,7 +357,7 @@ impl DropdownMenu {
         let mut current_y = self.padding;
         
         for (index, item) in self.items.iter().enumerate() {
-            let item_h = if item.is_separator { 9 } else { self.item_height };
+            let item_h = if item.is_separator { 13 } else { self.item_height };
             
             if y >= current_y && y < current_y + item_h {
                 if !item.is_separator && !item.is_disabled {

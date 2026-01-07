@@ -14,53 +14,63 @@ pub struct Icons {
 
 impl Icons {
     /// Create new icon manager with default icons
+    /// Uses modern Unicode symbols optimized for Windows 11 Segoe UI
     pub fn new() -> Self {
         let mut icons = HashMap::new();
         
-        // Menu icons
+        // Menu icons - clean modern style
         icons.insert("menu".to_string(), "☰".to_string());
-        icons.insert("search".to_string(), "🔍".to_string());
+        icons.insert("search".to_string(), "⌕".to_string());  // Cleaner search icon
         icons.insert("settings".to_string(), "⚙".to_string());
         icons.insert("close".to_string(), "✕".to_string());
+        icons.insert("more".to_string(), "⋯".to_string());  // Three dots horizontal
+        icons.insert("dots_vertical".to_string(), "⋮".to_string());  // Three dots vertical
         
-        // System icons
+        // System icons - modern power symbols
         icons.insert("power".to_string(), "⏻".to_string());
-        icons.insert("restart".to_string(), "↻".to_string());
+        icons.insert("restart".to_string(), "⟳".to_string());  // Better rotation arrow
         icons.insert("sleep".to_string(), "☾".to_string());
         icons.insert("lock".to_string(), "🔒".to_string());
-        icons.insert("user".to_string(), "👤".to_string());
+        icons.insert("user".to_string(), "⚇".to_string());  // Simpler user icon
+        icons.insert("signout".to_string(), "⎋".to_string());  // Escape symbol
         
-        // Battery icons
+        // Battery icons - consistent style
         icons.insert("battery".to_string(), "🔋".to_string());
         icons.insert("battery_full".to_string(), "🔋".to_string());
         icons.insert("battery_medium".to_string(), "🔋".to_string());
         icons.insert("battery_low".to_string(), "🪫".to_string());
         icons.insert("battery_empty".to_string(), "🪫".to_string());
         icons.insert("battery_charging".to_string(), "⚡".to_string());
-        icons.insert("power_plug".to_string(), "🔌".to_string());
+        icons.insert("power_plug".to_string(), "⏚".to_string());  // AC power symbol
         
-        // Network icons
+        // Network icons - refined
         icons.insert("wifi".to_string(), "📶".to_string());
         icons.insert("wifi_off".to_string(), "📵".to_string());
-        icons.insert("ethernet".to_string(), "🔗".to_string());
+        icons.insert("wifi_weak".to_string(), "📶".to_string());
+        icons.insert("ethernet".to_string(), "⌁".to_string());  // Cleaner network
         icons.insert("globe".to_string(), "🌐".to_string());
         icons.insert("airplane".to_string(), "✈".to_string());
+        icons.insert("vpn".to_string(), "🔐".to_string());
         
-        // Volume icons
+        // Volume icons - clean audio symbols
         icons.insert("volume_high".to_string(), "🔊".to_string());
         icons.insert("volume_medium".to_string(), "🔉".to_string());
         icons.insert("volume_low".to_string(), "🔈".to_string());
         icons.insert("volume_mute".to_string(), "🔇".to_string());
+        icons.insert("headphones".to_string(), "🎧".to_string());
+        icons.insert("speaker".to_string(), "🔈".to_string());
         
-        // Media icons
+        // Media icons - refined playback controls
         icons.insert("play".to_string(), "▶".to_string());
         icons.insert("pause".to_string(), "⏸".to_string());
         icons.insert("stop".to_string(), "⏹".to_string());
         icons.insert("previous".to_string(), "⏮".to_string());
         icons.insert("next".to_string(), "⏭".to_string());
-        icons.insert("music".to_string(), "🎵".to_string());
+        icons.insert("music".to_string(), "♪".to_string());  // Cleaner music note
+        icons.insert("shuffle".to_string(), "⤮".to_string());
+        icons.insert("repeat".to_string(), "⟲".to_string());
         
-        // Weather icons
+        // Weather icons - cleaner symbols
         icons.insert("sun".to_string(), "☀".to_string());
         icons.insert("cloud".to_string(), "☁".to_string());
         icons.insert("partly_cloudy".to_string(), "⛅".to_string());
@@ -69,37 +79,47 @@ impl Icons {
         icons.insert("snow".to_string(), "❄".to_string());
         icons.insert("fog".to_string(), "🌫".to_string());
         icons.insert("temperature".to_string(), "🌡".to_string());
+        icons.insert("wind".to_string(), "💨".to_string());
+        icons.insert("moon".to_string(), "🌙".to_string());
         
-        // Status icons
-        icons.insert("info".to_string(), "ℹ".to_string());
+        // Status icons - modern notification style
+        icons.insert("info".to_string(), "ⓘ".to_string());  // Circled i
         icons.insert("warning".to_string(), "⚠".to_string());
-        icons.insert("error".to_string(), "❌".to_string());
+        icons.insert("error".to_string(), "✖".to_string());  // Cleaner X
         icons.insert("success".to_string(), "✓".to_string());
         icons.insert("notification".to_string(), "🔔".to_string());
         icons.insert("notification_off".to_string(), "🔕".to_string());
+        icons.insert("dot".to_string(), "●".to_string());  // Filled circle indicator
         
-        // Arrow icons
+        // Arrow icons - modern chevrons
         icons.insert("arrow_up".to_string(), "↑".to_string());
         icons.insert("arrow_down".to_string(), "↓".to_string());
         icons.insert("arrow_left".to_string(), "←".to_string());
         icons.insert("arrow_right".to_string(), "→".to_string());
         icons.insert("chevron_down".to_string(), "⌄".to_string());
         icons.insert("chevron_right".to_string(), "›".to_string());
+        icons.insert("chevron_up".to_string(), "⌃".to_string());
+        icons.insert("expand".to_string(), "▾".to_string());  // Down pointing triangle
         
-        // Misc icons
+        // Misc icons - refined system icons
         icons.insert("calendar".to_string(), "📅".to_string());
-        icons.insert("clock".to_string(), "🕐".to_string());
+        icons.insert("clock".to_string(), "◷".to_string());  // Cleaner clock
         icons.insert("folder".to_string(), "📁".to_string());
         icons.insert("file".to_string(), "📄".to_string());
-        icons.insert("app".to_string(), "⬜".to_string());
-        icons.insert("window".to_string(), "🗗".to_string());
-        icons.insert("maximize".to_string(), "🗖".to_string());
-        icons.insert("minimize".to_string(), "🗕".to_string());
-        icons.insert("cpu".to_string(), "⬡".to_string());
-        icons.insert("memory".to_string(), "⬢".to_string());
-        icons.insert("disk".to_string(), "💾".to_string());
-        icons.insert("gpu".to_string(), "🎮".to_string());
-        icons.insert("bluetooth".to_string(), "📶".to_string());
+        icons.insert("app".to_string(), "▣".to_string());  // Square with inner square
+        icons.insert("window".to_string(), "⧉".to_string());  // Window icon
+        icons.insert("maximize".to_string(), "⬜".to_string());
+        icons.insert("minimize".to_string(), "▬".to_string());  // Horizontal bar
+        icons.insert("cpu".to_string(), "⬡".to_string());  // Hexagon
+        icons.insert("memory".to_string(), "⬢".to_string());  // Filled hexagon
+        icons.insert("disk".to_string(), "⛃".to_string());  // Storage symbol
+        icons.insert("gpu".to_string(), "◈".to_string());  // Diamond with dot - cleaner
+        icons.insert("bluetooth".to_string(), "ᛒ".to_string());  // Bluetooth rune symbol
+        icons.insert("bluetooth_on".to_string(), "ᛒ".to_string());
+        icons.insert("bluetooth_off".to_string(), "ᛒ".to_string());
+        icons.insert("keyboard".to_string(), "⌨".to_string());
+        icons.insert("uptime".to_string(), "⏱".to_string());  // Stopwatch
+        icons.insert("separator".to_string(), "│".to_string());  // Vertical line separator
         
         Self { icons }
     }

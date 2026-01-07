@@ -181,48 +181,53 @@ impl Theme {
             name: "Light".to_string(),
             is_dark: false,
             
-            // macOS-inspired light background with translucency
-            background: Color::new(255, 255, 255, 217),  // ~85% opacity
-            background_secondary: Color::new(245, 245, 247, 230),
-            background_hover: Color::new(0, 0, 0, 13),
-            background_active: Color::new(0, 0, 0, 26),
+            // Modern translucent light background - refined for clarity
+            background: Color::new(251, 251, 253, 235),  // Crisp white with ~92% opacity
+            background_secondary: Color::new(242, 242, 247, 245),
+            background_hover: Color::new(0, 0, 0, 10),  // Subtle hover state
+            background_active: Color::new(0, 0, 0, 18),
             
-            text_primary: Color::rgb(29, 29, 31),
-            text_secondary: Color::rgb(99, 99, 102),
-            text_disabled: Color::rgb(174, 174, 178),
-            text_accent: Color::rgb(0, 122, 255),
+            // Improved text contrast for readability
+            text_primary: Color::rgb(28, 28, 30),
+            text_secondary: Color::rgb(72, 72, 74),  // Better contrast
+            text_disabled: Color::rgb(142, 142, 147),
+            text_accent: Color::rgb(0, 113, 227),  // Refined blue
             
-            // macOS blue accent
-            accent: Color::rgb(0, 122, 255),
-            accent_hover: Color::rgb(0, 111, 230),
-            accent_active: Color::rgb(0, 100, 209),
+            // Modern accent - slightly deeper blue
+            accent: Color::rgb(0, 113, 227),
+            accent_hover: Color::rgb(0, 98, 204),
+            accent_active: Color::rgb(0, 85, 179),
             
-            border: Color::new(0, 0, 0, 20),
-            border_hover: Color::new(0, 0, 0, 40),
+            border: Color::new(0, 0, 0, 12),  // Softer borders
+            border_hover: Color::new(0, 0, 0, 25),
             
-            success: Color::rgb(52, 199, 89),
-            warning: Color::rgb(255, 149, 0),
+            // Vibrant status colors
+            success: Color::rgb(40, 205, 65),
+            warning: Color::rgb(255, 159, 10),
             error: Color::rgb(255, 59, 48),
-            info: Color::rgb(0, 122, 255),
+            info: Color::rgb(0, 113, 227),
             
-            shadow: Color::new(0, 0, 0, 40),
-            overlay: Color::new(0, 0, 0, 51),
+            shadow: Color::new(0, 0, 0, 25),  // Softer shadows
+            overlay: Color::new(0, 0, 0, 40),
             
-            battery_full: Color::rgb(52, 199, 89),
-            battery_medium: Color::rgb(255, 214, 10),
-            battery_low: Color::rgb(255, 149, 0),
+            // Battery colors - more vibrant
+            battery_full: Color::rgb(40, 205, 65),
+            battery_medium: Color::rgb(255, 204, 0),
+            battery_low: Color::rgb(255, 159, 10),
             battery_critical: Color::rgb(255, 59, 48),
-            battery_charging: Color::rgb(52, 199, 89),
+            battery_charging: Color::rgb(40, 205, 65),
             
-            network_connected: Color::rgb(52, 199, 89),
+            // Network status
+            network_connected: Color::rgb(40, 205, 65),
             network_disconnected: Color::rgb(142, 142, 147),
             
-            cpu_normal: Color::rgb(0, 122, 255),
-            cpu_high: Color::rgb(255, 149, 0),
+            // System metrics - refined palette
+            cpu_normal: Color::rgb(0, 113, 227),
+            cpu_high: Color::rgb(255, 159, 10),
             cpu_critical: Color::rgb(255, 59, 48),
             
-            memory_normal: Color::rgb(175, 82, 222),
-            memory_high: Color::rgb(255, 149, 0),
+            memory_normal: Color::rgb(191, 90, 242),  // Vivid purple
+            memory_high: Color::rgb(255, 159, 10),
             memory_critical: Color::rgb(255, 59, 48),
         }
     }
@@ -233,49 +238,54 @@ impl Theme {
             name: "Dark".to_string(),
             is_dark: true,
             
-            // macOS-inspired dark background with translucency
-            background: Color::new(30, 30, 30, 217),  // ~85% opacity
-            background_secondary: Color::new(44, 44, 46, 230),
-            background_hover: Color::new(255, 255, 255, 20),
-            background_active: Color::new(255, 255, 255, 38),
+            // Modern dark background - rich and sleek
+            background: Color::new(22, 22, 24, 240),  // Deep charcoal with ~94% opacity
+            background_secondary: Color::new(38, 38, 42, 250),
+            background_hover: Color::new(255, 255, 255, 15),  // Subtle glow
+            background_active: Color::new(255, 255, 255, 28),
             
-            text_primary: Color::rgb(255, 255, 255),
-            text_secondary: Color::rgb(152, 152, 157),
-            text_disabled: Color::rgb(99, 99, 102),
-            text_accent: Color::rgb(10, 132, 255),
+            // Crisp white text with good secondary contrast
+            text_primary: Color::rgb(250, 250, 252),
+            text_secondary: Color::rgb(160, 160, 166),  // Better readability
+            text_disabled: Color::rgb(88, 88, 92),
+            text_accent: Color::rgb(32, 150, 255),  // Brighter for dark bg
             
-            // macOS blue accent (slightly brighter for dark mode)
-            accent: Color::rgb(10, 132, 255),
-            accent_hover: Color::rgb(64, 156, 255),
-            accent_active: Color::rgb(100, 175, 255),
+            // Vibrant accent for dark mode
+            accent: Color::rgb(32, 150, 255),
+            accent_hover: Color::rgb(70, 170, 255),
+            accent_active: Color::rgb(100, 185, 255),
             
-            border: Color::new(255, 255, 255, 20),
-            border_hover: Color::new(255, 255, 255, 40),
+            border: Color::new(255, 255, 255, 12),  // Subtle glass edge
+            border_hover: Color::new(255, 255, 255, 28),
             
-            success: Color::rgb(48, 209, 88),
-            warning: Color::rgb(255, 159, 10),
-            error: Color::rgb(255, 69, 58),
-            info: Color::rgb(10, 132, 255),
+            // Vivid status colors optimized for dark
+            success: Color::rgb(52, 211, 92),
+            warning: Color::rgb(255, 179, 64),
+            error: Color::rgb(255, 85, 74),
+            info: Color::rgb(32, 150, 255),
             
-            shadow: Color::new(0, 0, 0, 80),
-            overlay: Color::new(0, 0, 0, 102),
+            shadow: Color::new(0, 0, 0, 100),
+            overlay: Color::new(0, 0, 0, 128),
             
-            battery_full: Color::rgb(48, 209, 88),
-            battery_medium: Color::rgb(255, 214, 10),
-            battery_low: Color::rgb(255, 159, 10),
-            battery_critical: Color::rgb(255, 69, 58),
-            battery_charging: Color::rgb(48, 209, 88),
+            // Battery - bright and visible
+            battery_full: Color::rgb(52, 211, 92),
+            battery_medium: Color::rgb(255, 214, 64),
+            battery_low: Color::rgb(255, 179, 64),
+            battery_critical: Color::rgb(255, 85, 74),
+            battery_charging: Color::rgb(52, 211, 92),
             
-            network_connected: Color::rgb(48, 209, 88),
-            network_disconnected: Color::rgb(152, 152, 157),
+            // Network status
+            network_connected: Color::rgb(52, 211, 92),
+            network_disconnected: Color::rgb(128, 128, 134),
             
-            cpu_normal: Color::rgb(10, 132, 255),
-            cpu_high: Color::rgb(255, 159, 10),
-            cpu_critical: Color::rgb(255, 69, 58),
+            // System metrics - vibrant gradients
+            cpu_normal: Color::rgb(32, 150, 255),
+            cpu_high: Color::rgb(255, 179, 64),
+            cpu_critical: Color::rgb(255, 85, 74),
             
-            memory_normal: Color::rgb(191, 90, 242),
-            memory_high: Color::rgb(255, 159, 10),
-            memory_critical: Color::rgb(255, 69, 58),
+            memory_normal: Color::rgb(200, 110, 250),  // Rich purple
+            memory_high: Color::rgb(255, 179, 64),
+            memory_critical: Color::rgb(255, 85, 74),
         }
     }
 

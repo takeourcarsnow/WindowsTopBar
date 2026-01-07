@@ -130,15 +130,15 @@ impl Default for AppearanceConfig {
         Self {
             theme_mode: ThemeMode::Auto,
             accent_color: None,
-            bar_height: 28,
-            opacity: 0.85,
+            bar_height: 32,  // Taller for better touch and readability
+            opacity: 0.92,   // Higher opacity for better text legibility
             blur_enabled: true,
-            blur_intensity: 30,
-            corner_radius: 8,
-            font_family: "Segoe UI Variable".to_string(),
+            blur_intensity: 40,  // Stronger blur for modern glass effect
+            corner_radius: 10,   // Slightly larger radius for smoother look
+            font_family: "Segoe UI Variable Text".to_string(),  // Modern variable font
             font_size: 13,
             animations_enabled: true,
-            animation_speed: 150,
+            animation_speed: 120,  // Snappier animations
             shadow_enabled: true,
             position: BarPosition::Top,
             monitor: 0,
@@ -249,7 +249,7 @@ impl Default for ClockConfig {
             format_24h: false,
             show_seconds: false,
             show_date: true,
-            date_format: "%b %d".to_string(),
+            date_format: "%a, %b %d".to_string(),  // Include day name: "Tue, Jan 7"
             show_day: true,
         }
     }
@@ -279,7 +279,7 @@ impl Default for SystemInfoConfig {
             show_memory: true,
             show_disk: false,
             show_gpu: false,
-            update_interval_ms: 2000,
+            update_interval_ms: 1500,  // Slightly faster updates for responsiveness
             show_graph: false,
         }
     }
@@ -449,7 +449,7 @@ impl Default for MediaConfig {
             show_album_art: true,
             show_controls: true,
             scroll_title: true,
-            max_title_length: 30,
+            max_title_length: 35,  // Slightly longer for better context
         }
     }
 }
@@ -545,7 +545,7 @@ impl Default for GpuConfig {
             show_memory: false,
             show_temperature: false,
             show_graph: false,
-            update_interval_ms: 2000,
+            update_interval_ms: 1500,  // More responsive updates
         }
     }
 }
@@ -595,7 +595,7 @@ impl Default for BehaviorConfig {
     fn default() -> Self {
         Self {
             auto_hide: false,
-            auto_hide_delay_ms: 1000,
+            auto_hide_delay_ms: 800,  // Faster response for better UX
             reserve_space: true,
             all_desktops: true,
             drag_to_move: false,
