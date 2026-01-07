@@ -751,7 +751,16 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         
         // Volume settings
         VOL_SHOW_PCT => toggle_config_bool(hwnd, |c| &mut c.modules.volume.show_percentage),
-        VOL_MUTE => info!("Mute toggled"), // TODO: Implement actual mute
+        VOL_MUTE => {
+            with_renderer(|renderer| {
+                if let Some(module) = renderer.module_registry.get_mut("volume") {
+                    // Cast to VolumeModule to access toggle_mute
+                    if let Some(volume_module) = module.as_any_mut().downcast_mut::<crate::modules::volume::VolumeModule>() {
+                        volume_module.toggle_mute();
+                    }
+                }
+            });
+        }
         
         // Network settings
         NET_SHOW_NAME => toggle_config_bool(hwnd, |c| &mut c.modules.network.show_name),

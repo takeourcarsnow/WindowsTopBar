@@ -271,4 +271,12 @@ impl Module for MediaModule {
         // Only show when something is playing/paused
         self.playback_state != PlaybackState::Stopped
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

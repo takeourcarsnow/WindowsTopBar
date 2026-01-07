@@ -242,4 +242,12 @@ impl Module for AppMenuModule {
     fn tooltip(&self) -> Option<String> {
         Some("Click for menu".to_string())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

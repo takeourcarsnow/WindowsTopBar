@@ -227,4 +227,12 @@ impl Module for BatteryModule {
     fn is_visible(&self) -> bool {
         self.has_battery
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

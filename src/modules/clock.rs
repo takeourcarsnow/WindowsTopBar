@@ -143,4 +143,12 @@ impl Module for ClockModule {
         let now = Local::now();
         Some(now.format("%A, %B %d, %Y\n%I:%M:%S %p").to_string())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

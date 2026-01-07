@@ -69,12 +69,15 @@ impl GpuModule {
 
     /// Query GPU information using Windows APIs
     fn query_gpu_info(&mut self) {
-        // Try to get GPU adapter information via performance counters
-        self.query_d3dkmt_info();
+        // First try PDH for usage
+        if !self.query_d3dkmt_info() {
+            // If PDH fails, at least get GPU names via DXGI
+            self.query_dxgi_adapter_info();
+        }
     }
 
     /// Query D3DKMT for GPU information
-    fn query_d3dkmt_info(&mut self) {
+    fn query_d3dkmt_info(&mut self) -> bool {
         // D3DKMT APIs require linking to gdi32.dll dynamically
         // This is a simplified approach using performance counters
         
@@ -88,43 +91,91 @@ impl GpuModule {
             let mut query = 0isize;
             let status = PdhOpenQueryW(PCWSTR::null(), 0, &mut query);
             if status != 0 {
-                // Fallback: estimate GPU usage from GPU Engine performance counters
-                self.gpu_info.usage = self.estimate_gpu_usage();
-                return;
+                return false;
             }
 
-            // Try GPU Engine utilization counter
-            let counter_path = crate::utils::to_wide_string("\\GPU Engine(*)\\Utilization Percentage");
-            let mut counter = 0isize;
-            let status = PdhAddEnglishCounterW(
-                query,
-                PCWSTR(counter_path.as_ptr()),
-                0,
-                &mut counter,
-            );
+            // Try multiple GPU Engine utilization counters
+            let counter_paths = [
+                "\\GPU Engine(*)\\Utilization Percentage",
+                "\\GPU Engine(pid_*)\\Utilization Percentage",
+                "\\GPU Engine(*)\\Utilization Percentage",
+            ];
 
-            if status == 0 {
-                // Collect data
-                let _ = PdhCollectQueryData(query);
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                let _ = PdhCollectQueryData(query);
+            for counter_path in &counter_paths {
+                let counter_path_wide = crate::utils::to_wide_string(counter_path);
+                let mut counter = 0isize;
+                let status = PdhAddEnglishCounterW(
+                    query,
+                    PCWSTR(counter_path_wide.as_ptr()),
+                    0,
+                    &mut counter,
+                );
 
-                let mut value = PDH_FMT_COUNTERVALUE::default();
-                if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
-                    self.gpu_info.usage = value.Anonymous.doubleValue as f32;
+                if status == 0 {
+                    // Collect data
+                    let _ = PdhCollectQueryData(query);
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    let _ = PdhCollectQueryData(query);
+
+                    let mut value = PDH_FMT_COUNTERVALUE::default();
+                    if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
+                        self.gpu_info.usage = value.Anonymous.doubleValue as f32;
+                        // Close query
+                        let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
+                        return true;
+                    }
                 }
             }
 
+            // If all counters failed, use fallback
+            self.gpu_info.usage = self.estimate_gpu_usage();
+            
             // Close query
             let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
+            false
         }
     }
 
     /// Estimate GPU usage from system metrics
     fn estimate_gpu_usage(&self) -> f32 {
-        // Fallback method: check if any GPU processes are running
-        // This is a rough estimate
+        // For usage estimation, we can't easily get real-time usage without PDH
+        // Return 0 for now
         0.0
+    }
+
+    /// Query GPU adapter info using DXGI
+    fn query_dxgi_adapter_info(&mut self) {
+        use windows::Win32::Graphics::Dxgi::{
+            CreateDXGIFactory1, IDXGIFactory1,
+        };
+
+        unsafe {
+            let factory: IDXGIFactory1 = match CreateDXGIFactory1() {
+                Ok(f) => f,
+                Err(_) => return,
+            };
+
+            for i in 0.. {
+                let adapter = match factory.EnumAdapters1(i) {
+                    Ok(a) => a,
+                    Err(_) => break,
+                };
+
+                if let Ok(desc) = adapter.GetDesc1() {
+                    // Convert the description to a string
+                    let name = String::from_utf16_lossy(&desc.Description);
+                    let name = name.trim_end_matches('\0').to_string();
+                    
+                    if self.gpu_info.name.is_empty() {
+                        self.gpu_info.name = name;
+                    }
+                    
+                    if self.gpu_info.memory_total == 0 {
+                        self.gpu_info.memory_total = desc.DedicatedVideoMemory as u64;
+                    }
+                }
+            }
+        }
     }
 
     /// Build the display text
@@ -250,5 +301,13 @@ impl Module for GpuModule {
 
     fn is_visible(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

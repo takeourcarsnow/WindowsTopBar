@@ -158,4 +158,12 @@ impl Module for UptimeModule {
     fn tooltip(&self) -> Option<String> {
         Some(format!("System Uptime\n{}", self.formatted_full()))
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

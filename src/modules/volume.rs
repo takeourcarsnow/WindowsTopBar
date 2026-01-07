@@ -234,4 +234,12 @@ impl Module for VolumeModule {
         let status = if self.is_muted { " (Muted)" } else { "" };
         Some(format!("Volume: {}%{}\nScroll to adjust, click to mute", self.volume_level, status))
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

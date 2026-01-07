@@ -18,6 +18,7 @@ pub mod uptime;
 pub mod bluetooth;
 pub mod disk;
 
+use std::any::Any;
 use std::collections::HashMap;
 use windows::Win32::Graphics::Gdi::HDC;
 
@@ -60,6 +61,12 @@ pub trait Module: Send + Sync {
     fn preferred_width(&self) -> i32 {
         0
     }
+
+    /// Cast to Any for downcasting
+    fn as_any(&self) -> &dyn Any;
+
+    /// Cast to Any mutably for downcasting
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 /// Render context for modules

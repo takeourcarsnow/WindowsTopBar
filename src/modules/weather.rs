@@ -226,4 +226,12 @@ impl Module for WeatherModule {
     fn is_visible(&self) -> bool {
         self.enabled && self.weather_data.is_some()
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

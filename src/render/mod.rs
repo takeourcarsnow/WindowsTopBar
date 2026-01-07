@@ -24,7 +24,7 @@ use crate::window::get_window_state;
 pub struct Renderer {
     hwnd: HWND,
     dpi: u32,
-    module_registry: ModuleRegistry,
+    pub module_registry: ModuleRegistry,
     module_bounds: HashMap<String, Rect>,
     icons: Icons,
     // Double buffering
