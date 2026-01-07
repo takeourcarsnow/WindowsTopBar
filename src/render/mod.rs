@@ -314,10 +314,15 @@ impl Renderer {
                             .get("network")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("wifi"));
-                        let (text_width, _) = self.measure_text(hdc, &network_text);
-                        x -= text_width + item_padding * 2;
-                        let network_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &network_text, item_padding, theme, false
+
+                        // Reserve a fixed minimum width for the numeric speed portion to prevent layout shifting
+                        let sample = format!("{} 000.0↓/000.0↑MB/s", self.icons.get("ethernet"));
+                        let (sample_width, _) = self.measure_text(hdc, &sample);
+                        let min_width = sample_width + item_padding * 2;
+
+                        x -= min_width;
+                        let network_rect = self.draw_module_text_fixed(
+                            hdc, x, bar_rect.height, &network_text, item_padding, min_width, theme
                         );
                         self.module_bounds.insert("network".to_string(), network_rect);
                         x -= item_spacing;
