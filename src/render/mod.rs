@@ -446,17 +446,7 @@ impl Renderer {
                                 graph_height,
                             );
                             unsafe {
-                                let bg_brush =
-                                    CreateSolidBrush(theme.background_secondary.colorref());
-                                let r = windows::Win32::Foundation::RECT {
-                                    left: rect.x,
-                                    top: rect.y,
-                                    right: rect.x + rect.width,
-                                    bottom: rect.y + rect.height,
-                                };
-                                FillRect(hdc, &r, bg_brush);
-                                let _ = DeleteObject(bg_brush);
-
+                                // Draw directly on the bar; no background fill so graph visuals are clean
                                 if let Some(module) = self.module_registry.get("system_info") {
                                     if let Some(values) = module.graph_values() {
                                         if !values.is_empty() {
@@ -643,17 +633,7 @@ impl Renderer {
                                 graph_height,
                             );
                             unsafe {
-                                let bg_brush =
-                                    CreateSolidBrush(theme.background_secondary.colorref());
-                                let r = windows::Win32::Foundation::RECT {
-                                    left: rect.x,
-                                    top: rect.y,
-                                    right: rect.x + rect.width,
-                                    bottom: rect.y + rect.height,
-                                };
-                                FillRect(hdc, &r, bg_brush);
-                                let _ = DeleteObject(bg_brush);
-
+                                // Draw directly on the bar; no background fill so graph visuals are clean
                                 if let Some(module) = self.module_registry.get("gpu") {
                                     if let Some(values) = module.graph_values() {
                                         if !values.is_empty() {
@@ -845,16 +825,7 @@ impl Renderer {
                             disk_height,
                         );
                         unsafe {
-                            let bg_brush = CreateSolidBrush(theme.background_secondary.colorref());
-                            let r = windows::Win32::Foundation::RECT {
-                                left: rect.x,
-                                top: rect.y,
-                                right: rect.x + rect.width,
-                                bottom: rect.y + rect.height,
-                            };
-                            FillRect(hdc, &r, bg_brush);
-                            let _ = DeleteObject(bg_brush);
-
+                            // Draw directly on the bar; no background fill so visuals are clean
                             if let Some(module) = self.module_registry.get("disk") {
                                 if let Some(disk_module) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
                                     let usage_percent = disk_module.primary_usage_percent() as f32 / 100.0;
@@ -868,19 +839,7 @@ impl Renderer {
                                     let right = center_x + radius;
                                     let bottom = center_y + radius;
 
-                                    unsafe {
-                                        // Background circle (subtle)
-                                        let bg_brush = CreateSolidBrush(theme.text_secondary.colorref());
-                                        let old_brush = SelectObject(hdc, bg_brush);
-                                        let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
-                                        let old_pen = SelectObject(hdc, pen);
-                                        let _ = Ellipse(hdc, left, top, right, bottom);
-                                        let _ = SelectObject(hdc, old_pen);
-                                        let _ = DeleteObject(pen);
-                                        let _ = SelectObject(hdc, old_brush);
-                                        let _ = DeleteObject(bg_brush);
-
-                                        // Used slice (filled pie) — if 0% we skip drawing it; if 100% we draw a filled circle
+                                    // Used slice (filled pie) — if 0% we skip drawing it; if 100% we draw a filled circle
                                         if usage_percent <= 0.0 {
                                             // nothing to draw
                                         } else if usage_percent >= 1.0 {
@@ -914,7 +873,6 @@ impl Renderer {
                                     }
                                 }
                             }
-                        }
 
                         self.module_bounds.insert("disk".to_string(), rect);
                         x -= item_spacing;
