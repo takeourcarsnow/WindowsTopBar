@@ -27,14 +27,13 @@ pub struct DiskModule {
 
 impl DiskModule {
     pub fn new() -> Self {
-        let module = Self {
+        Self {
             cached_text: String::new(),
             disks: Vec::new(),
             primary_disk_index: 0,
             last_update: Instant::now(),
             update_interval_ms: 5000,
-        };
-        module
+        }
     }
 
     /// Force an immediate update

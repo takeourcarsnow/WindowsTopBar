@@ -233,12 +233,12 @@ impl DropdownMenu {
             GetClientRect(self.hwnd, &mut rect).ok();
 
             // Draw background with slightly elevated color
-            let bg_brush = CreateSolidBrush(self.theme.background.to_colorref());
+            let bg_brush = CreateSolidBrush(self.theme.background.colorref());
             FillRect(hdc, &rect, bg_brush);
             let _ = DeleteObject(bg_brush);
 
             // Draw subtle border with slight alpha
-            let border_brush = CreateSolidBrush(self.theme.border_hover.to_colorref());
+            let border_brush = CreateSolidBrush(self.theme.border_hover.colorref());
             FrameRect(hdc, &rect, border_brush);
             let _ = DeleteObject(border_brush);
 
@@ -259,7 +259,7 @@ impl DropdownMenu {
                         right: rect.right - self.padding - 12,
                         bottom: y + 8,
                     };
-                    let sep_brush = CreateSolidBrush(self.theme.border.to_colorref());
+                    let sep_brush = CreateSolidBrush(self.theme.border.colorref());
                     FillRect(hdc, &sep_rect, sep_brush);
                     let _ = DeleteObject(sep_brush);
                     y += 15;  // More breathing room
@@ -279,15 +279,15 @@ impl DropdownMenu {
                         } else {
                             self.theme.accent.with_alpha(230)  // Soft accent
                         };
-                        let hover_brush = CreateSolidBrush(hover_color.to_colorref());
+                        let hover_brush = CreateSolidBrush(hover_color.colorref());
                         let rounded_rect = item_rect;
                         FillRect(hdc, &rounded_rect, hover_brush);
                         let _ = DeleteObject(hover_brush);
 
                         if self.theme.is_dark {
-                            SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
+                            SetTextColor(hdc, Color::rgb(255, 255, 255).colorref());
                         } else {
-                            SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
+                            SetTextColor(hdc, Color::rgb(255, 255, 255).colorref());
                         }
                     } else {
                         let color = if item.is_disabled {
@@ -295,7 +295,7 @@ impl DropdownMenu {
                         } else {
                             self.theme.text_primary
                         };
-                        SetTextColor(hdc, color.to_colorref());
+                        SetTextColor(hdc, color.colorref());
                     }
 
                     // Draw icon if present (better spacing)
@@ -312,7 +312,7 @@ impl DropdownMenu {
 
                     // Draw shortcut with secondary color
                     if let Some(ref shortcut) = item.shortcut {
-                        SetTextColor(hdc, self.theme.text_secondary.to_colorref());
+                        SetTextColor(hdc, self.theme.text_secondary.colorref());
                         let shortcut_wide: Vec<u16> = shortcut.encode_utf16().chain(std::iter::once(0)).collect();
                         
                         let mut size = windows::Win32::Foundation::SIZE::default();
@@ -323,7 +323,7 @@ impl DropdownMenu {
 
                     // Draw submenu arrow
                     if item.submenu.is_some() {
-                        SetTextColor(hdc, self.theme.text_secondary.to_colorref());
+                        SetTextColor(hdc, self.theme.text_secondary.colorref());
                         let arrow: Vec<u16> = "▶".encode_utf16().chain(std::iter::once(0)).collect();
                         let _ = TextOutW(hdc, item_rect.right - 20, y + 6, &arrow[..arrow.len()-1]);
                     }

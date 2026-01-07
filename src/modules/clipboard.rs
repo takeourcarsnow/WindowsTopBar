@@ -118,10 +118,7 @@ impl Module for ClipboardModule {
 fn read_clipboard_text() -> Option<String> {
     // Use `arboard` crate for clipboard access
     match arboard::Clipboard::new() {
-        Ok(mut cb) => match cb.get_text() {
-            Ok(text) => Some(text),
-            Err(_) => None,
-        },
+        Ok(mut cb) => cb.get_text().ok(),
         Err(_) => None,
     }
 }

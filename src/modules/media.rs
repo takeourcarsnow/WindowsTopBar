@@ -139,7 +139,7 @@ impl MediaModule {
         };
 
         unsafe {
-            let mut inputs = [
+            let inputs = [
                 INPUT {
                     r#type: INPUT_KEYBOARD,
                     Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
@@ -166,7 +166,7 @@ impl MediaModule {
                 },
             ];
 
-            SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32);
+            SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
         }
     }
 

@@ -14,12 +14,11 @@ pub struct UptimeModule {
 
 impl UptimeModule {
     pub fn new() -> Self {
-        let module = Self {
+        Self {
             cached_text: String::new(),
             uptime_secs: 0,
             last_update: Instant::now(),
-        };
-        module
+        }
     }
 
     /// Force an immediate update

@@ -32,7 +32,7 @@ pub struct GpuModule {
 
 impl GpuModule {
     pub fn new() -> Self {
-        let module = Self {
+        Self {
             cached_text: String::new(),
             gpu_info: GpuInfo::default(),
             usage_history: VecDeque::with_capacity(60),
@@ -40,8 +40,7 @@ impl GpuModule {
             history_len: 60,
             last_update: Instant::now(),
             update_interval_ms: 2000,
-        };
-        module
+        }
     }
 
     /// Force an immediate update
@@ -276,10 +275,10 @@ impl GpuModule {
                             .is_ok()
                         {
                             // CurrentUsage is the number of bytes currently used
-                            self.gpu_info.memory_used = info.CurrentUsage as u64;
+                            self.gpu_info.memory_used = info.CurrentUsage;
                             if self.gpu_info.memory_total == 0 {
                                 // If we didn't get dedicated memory earlier, set from budget
-                                self.gpu_info.memory_total = info.Budget as u64;
+                                self.gpu_info.memory_total = info.Budget;
                             }
                         }
                     }

@@ -101,6 +101,7 @@ static WINDOW_STATE: once_cell::sync::OnceCell<Arc<RwLock<WindowState>>> =
 
 // Thread-local storage for the renderer (contains non-Send HWND)
 thread_local! {
+    #[allow(clippy::missing_const_for_thread_local)]
     static RENDERER: std::cell::RefCell<Option<Renderer>> = const { std::cell::RefCell::new(None) };
 }
 
@@ -157,7 +158,7 @@ impl WindowManager {
         }
 
         // Apply window styling
-        Self::apply_window_style(hwnd, &state.read().theme_manager.theme())?;
+        Self::apply_window_style(hwnd, state.read().theme_manager.theme())?;
 
         // Calculate and set position
         let bar_rect = Self::calculate_bar_rect(&config, dpi);
@@ -228,7 +229,7 @@ impl WindowManager {
                 None,
             )?;
 
-            if hwnd.0 == std::ptr::null_mut() {
+            if hwnd.0.is_null() {
                 return Err(anyhow::anyhow!("Failed to create window"));
             }
 
@@ -656,7 +657,7 @@ unsafe extern "system" fn window_proc(
 
         WM_LBUTTONUP => {
             let x = (lparam.0 & 0xFFFF) as i16 as i32;
-            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+            let _y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
 
             if let Some(state) = get_window_state() {
                 let mut s = state.write();
@@ -668,22 +669,22 @@ unsafe extern "system" fn window_proc(
                         let bounds = renderer.module_bounds().clone();
 
                         // Determine visual order for the origin side
-                        let (visual_list, mut target_vec) = if let Some(side) = &s.drag_origin_side
+                        let visual_list = if let Some(side) = &s.drag_origin_side
                         {
                             if side == "left" {
-                                (s.config.modules.left_modules.clone(), "left")
+                                s.config.modules.left_modules.clone()
                             } else {
-                                (s.config.modules.right_modules.clone(), "right")
+                                s.config.modules.right_modules.clone()
                             }
                         } else {
-                            (vec![], "left")
+                            vec![]
                         };
 
                         // Build visual vector of (id, rect) in left-to-right order
                         let mut visual: Vec<(String, crate::utils::Rect)> = Vec::new();
                         for id in visual_list.iter() {
                             if let Some(r) = bounds.get(id) {
-                                visual.push((id.clone(), r.clone()));
+                                visual.push((id.clone(), *r));
                             }
                         }
 
@@ -1247,7 +1248,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         }
 
         // Disk dynamic selection range
-        cmd if (cmd >= DISK_SELECT_BASE && cmd < DISK_SELECT_BASE + 100) => {
+        cmd if (DISK_SELECT_BASE..DISK_SELECT_BASE + 100).contains(&cmd) => {
             let idx = (cmd - DISK_SELECT_BASE) as usize;
             if let Some(state) = get_window_state() {
                 // Get disks from renderer
@@ -1282,7 +1283,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         }
 
         // Clipboard history selection range
-        cmd if (cmd >= CLIPBOARD_BASE && cmd < CLIPBOARD_BASE + 100) => {
+        cmd if (CLIPBOARD_BASE..CLIPBOARD_BASE + 100).contains(&cmd) => {
             let idx = (cmd - CLIPBOARD_BASE) as usize;
             let mut selected_text: Option<String> = None;
 
@@ -1312,7 +1313,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                 };
                 let vk_v = VIRTUAL_KEY(0x56); // 'V'
                 unsafe {
-                    let mut inputs = [
+                    let inputs = [
                         INPUT {
                             r#type: INPUT_KEYBOARD,
                             Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
@@ -1362,7 +1363,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                             },
                         },
                     ];
-                    SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32);
+                    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
                 }
             }
         }
@@ -2102,7 +2103,7 @@ fn show_uptime_menu(hwnd: HWND, x: i32, y: i32) {
             return;
         }
 
-        let config = get_window_state()
+        let _config = get_window_state()
             .map(|s| s.read().config.clone())
             .unwrap_or_default();
 

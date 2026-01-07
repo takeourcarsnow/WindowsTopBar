@@ -13,11 +13,10 @@ pub struct ClockModule {
 
 impl ClockModule {
     pub fn new() -> Self {
-        let module = Self {
+        Self {
             cached_text: String::new(),
             last_update: std::time::Instant::now(),
-        };
-        module
+        }
     }
 
     /// Format the current time

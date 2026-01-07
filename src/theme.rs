@@ -63,7 +63,7 @@ impl Color {
     }
 
     /// Convert to hex string
-    pub fn to_hex(&self) -> String {
+    pub fn hex(&self) -> String {
         if self.a == 255 {
             format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
         } else {
@@ -72,12 +72,12 @@ impl Color {
     }
 
     /// Convert to COLORREF for Windows API
-    pub fn to_colorref(&self) -> COLORREF {
+    pub fn colorref(&self) -> COLORREF {
         COLORREF(((self.b as u32) << 16) | ((self.g as u32) << 8) | (self.r as u32))
     }
 
     /// Convert to ARGB u32
-    pub fn to_argb(&self) -> u32 {
+    pub fn argb(&self) -> u32 {
         ((self.a as u32) << 24) | ((self.r as u32) << 16) | ((self.g as u32) << 8) | (self.b as u32)
     }
 

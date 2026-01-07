@@ -9,7 +9,7 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 use super::Module;
 
 // HKL is a handle type - we'll use isize
-type HKL = isize;
+type Hkl = isize;
 
 /// Common language IDs
 const LANG_ENGLISH: u16 = 0x09;
@@ -42,7 +42,7 @@ const LANG_FINNISH: u16 = 0x0B;
 /// Keyboard layout module
 pub struct KeyboardLayoutModule {
     cached_text: String,
-    current_layout: HKL,
+    current_layout: Hkl,
     language_code: String,
     language_name: String,
     last_update: Instant,

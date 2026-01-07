@@ -19,7 +19,7 @@ pub struct BatteryModule {
 
 impl BatteryModule {
     pub fn new() -> Self {
-        let module = Self {
+        Self {
             cached_text: String::new(),
             battery_percent: 100,
             is_charging: false,
@@ -27,8 +27,7 @@ impl BatteryModule {
             seconds_remaining: None,
             has_battery: true,
             last_update: Instant::now(),
-        };
-        module
+        }
     }
 
     /// Force an immediate update

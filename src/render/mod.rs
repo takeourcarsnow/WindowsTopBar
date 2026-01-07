@@ -107,7 +107,7 @@ impl Renderer {
     /// Draw the background
     fn draw_background(&self, hdc: HDC, rect: &Rect, theme: &Theme) {
         unsafe {
-            let brush = CreateSolidBrush(theme.background.to_colorref());
+            let brush = CreateSolidBrush(theme.background.colorref());
             let win_rect = windows::Win32::Foundation::RECT {
                 left: 0,
                 top: 0,
@@ -118,7 +118,7 @@ impl Renderer {
             let _ = DeleteObject(brush);
 
             // Draw subtle bottom border
-            let border_brush = CreateSolidBrush(theme.border.to_colorref());
+            let border_brush = CreateSolidBrush(theme.border.colorref());
             let border_rect = windows::Win32::Foundation::RECT {
                 left: 0,
                 top: rect.height - 1,
@@ -130,6 +130,7 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::explicit_auto_deref)]
     /// Draw all modules
     fn draw_modules(&mut self, hdc: HDC, bar_rect: &Rect, theme: &Theme) {
         // Get enabled modules and config from state (and current drag state)
@@ -167,7 +168,7 @@ impl Renderer {
         let bold_font = self.create_font("Segoe UI Variable Display", self.scale(13), true);
 
         unsafe {
-            let old_font = SelectObject(hdc, font);
+            let _old_font = SelectObject(hdc, font);
             SetBkMode(hdc, TRANSPARENT);
 
             // === LEFT SECTION ===
@@ -199,7 +200,7 @@ impl Renderer {
                 let app_name = self
                     .module_registry
                     .get("active_window")
-                    .map(|m| m.display_text(&*config))
+                    .map(|m| m.display_text(config.as_ref()))
                     .unwrap_or_else(|| "TopBar".to_string());
                 let app_rect = self.draw_module_text(
                     hdc,
@@ -418,7 +419,7 @@ impl Renderer {
                             );
                             unsafe {
                                 let bg_brush =
-                                    CreateSolidBrush(theme.background_secondary.to_colorref());
+                                    CreateSolidBrush(theme.background_secondary.colorref());
                                 let r = windows::Win32::Foundation::RECT {
                                     left: rect.x,
                                     top: rect.y,
@@ -450,7 +451,7 @@ impl Renderer {
                                             let pen = CreatePen(
                                                 PS_SOLID,
                                                 2,
-                                                theme.cpu_normal.to_colorref(),
+                                                theme.cpu_normal.colorref(),
                                             );
                                             let old_pen = SelectObject(hdc, pen);
                                             if let Some((sx, sy)) = points.first() {
@@ -574,7 +575,7 @@ impl Renderer {
                             );
                             unsafe {
                                 let bg_brush =
-                                    CreateSolidBrush(theme.background_secondary.to_colorref());
+                                    CreateSolidBrush(theme.background_secondary.colorref());
                                 let r = windows::Win32::Foundation::RECT {
                                     left: rect.x,
                                     top: rect.y,
@@ -605,7 +606,7 @@ impl Renderer {
                                             }
 
                                             let pen =
-                                                CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
+                                                CreatePen(PS_SOLID, 2, theme.accent.colorref());
                                             let old_pen = SelectObject(hdc, pen);
                                             // Move to first
                                             if let Some((sx, sy)) = points.first() {
@@ -784,7 +785,7 @@ impl Renderer {
 
                     unsafe {
                         // Draw background
-                        let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
+                        let bg_brush = CreateSolidBrush(theme.background_secondary.colorref());
                         let r = windows::Win32::Foundation::RECT {
                             left: x_pos,
                             top: y,
@@ -795,7 +796,7 @@ impl Renderer {
                         let _ = DeleteObject(bg_brush);
 
                         // Draw text
-                        SetTextColor(hdc, theme.text_primary.to_colorref());
+                        SetTextColor(hdc, theme.text_primary.colorref());
                         self.draw_text(
                             hdc,
                             x_pos + item_padding,
@@ -804,7 +805,7 @@ impl Renderer {
                         );
 
                         // Draw insertion marker
-                        let pen = CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
+                        let pen = CreatePen(PS_SOLID, 2, theme.accent.colorref());
                         let old_pen = SelectObject(hdc, pen);
                         let top = self.scale(6);
                         let bottom = bar_rect.height - self.scale(6);
@@ -818,6 +819,7 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Draw a module button with modern hover effect
     fn draw_module_button(
         &self,
@@ -837,7 +839,7 @@ impl Renderer {
         unsafe {
             // Draw subtle rounded background on hover
             if is_hovered {
-                let brush = CreateSolidBrush(theme.background_hover.to_colorref());
+                let brush = CreateSolidBrush(theme.background_hover.colorref());
                 let rect = windows::Win32::Foundation::RECT {
                     left: x + 2, // Slight inset for visual softness
                     top: y + 1,
@@ -849,7 +851,7 @@ impl Renderer {
             }
 
             // Draw text with proper color
-            SetTextColor(hdc, theme.text_primary.to_colorref());
+            SetTextColor(hdc, theme.text_primary.colorref());
             let text_y = (bar_height - text_height) / 2;
             self.draw_text(hdc, x + padding, text_y, text);
         }
@@ -857,6 +859,7 @@ impl Renderer {
         Rect::new(x, y, width, height)
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Draw module text with improved layout
     fn draw_module_text(
         &self,
@@ -875,7 +878,7 @@ impl Renderer {
 
         unsafe {
             // Use primary text color for good contrast
-            SetTextColor(hdc, theme.text_primary.to_colorref());
+            SetTextColor(hdc, theme.text_primary.colorref());
             // Center text vertically with slight adjustment for visual balance
             let text_y = (bar_height - text_height) / 2;
             self.draw_text(hdc, x + padding, text_y, text);
@@ -906,17 +909,16 @@ impl Renderer {
             } else {
                 result.push_str("00:00");
             }
+        } else if config.modules.clock.show_seconds {
+            result.push_str("00:00:00 PM");
         } else {
-            if config.modules.clock.show_seconds {
-                result.push_str("00:00:00 PM");
-            } else {
-                result.push_str("00:00 PM");
-            }
+            result.push_str("00:00 PM");
         }
 
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Draw module text with a minimum width to prevent layout shifting
     fn draw_module_text_fixed(
         &self,
@@ -934,7 +936,7 @@ impl Renderer {
         let y = (bar_height - height) / 2;
 
         unsafe {
-            SetTextColor(hdc, theme.text_primary.to_colorref());
+            SetTextColor(hdc, theme.text_primary.colorref());
             let text_y = (bar_height - text_height) / 2;
             // Center text within the fixed width
             let text_x = x + (width - text_width) / 2;
@@ -966,16 +968,16 @@ impl Renderer {
     fn create_font(&self, family: &str, size: i32, bold: bool) -> HFONT {
         unsafe {
             let family_wide: Vec<u16> = family.encode_utf16().chain(std::iter::once(0)).collect();
-            let mut lf = LOGFONTW::default();
-            lf.lfHeight = -size;
-            // Use SF Pro-inspired weights: regular (400) and semibold (600)
-            // This gives better visual hierarchy and readability
-            lf.lfWeight = if bold { 600 } else { 400 };
-            lf.lfCharSet = DEFAULT_CHARSET;
-            lf.lfOutPrecision = OUT_TT_PRECIS; // TrueType preferred
-            lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf.lfQuality = CLEARTYPE_QUALITY; // ClearType for smooth text
-            lf.lfPitchAndFamily = VARIABLE_PITCH.0 | FF_SWISS.0;
+            let mut lf = LOGFONTW {
+                lfHeight: -size,
+                lfWeight: if bold { 600 } else { 400 },
+                lfCharSet: DEFAULT_CHARSET,
+                lfOutPrecision: OUT_TT_PRECIS,
+                lfClipPrecision: CLIP_DEFAULT_PRECIS,
+                lfQuality: CLEARTYPE_QUALITY,
+                lfPitchAndFamily: VARIABLE_PITCH.0 | FF_SWISS.0,
+                ..Default::default()
+            };
 
             let face_len = family_wide.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family_wide[..face_len]);

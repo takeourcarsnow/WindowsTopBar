@@ -146,8 +146,8 @@ impl ModuleRegistry {
     }
 
     /// Get a module by ID
-    pub fn get(&self, id: &str) -> Option<&Box<dyn Module>> {
-        self.modules.get(id)
+    pub fn get(&self, id: &str) -> Option<&dyn Module> {
+        self.modules.get(id).map(|b| b.as_ref())
     }
 
     /// Get a mutable module by ID
@@ -163,26 +163,26 @@ impl ModuleRegistry {
     }
 
     /// Get left-side modules in order
-    pub fn left_modules(&self) -> Vec<&Box<dyn Module>> {
+    pub fn left_modules(&self) -> Vec<&dyn Module> {
         self.order_left
             .iter()
-            .filter_map(|id| self.modules.get(id))
+            .filter_map(|id| self.modules.get(id).map(|b| b.as_ref()))
             .collect()
     }
 
     /// Get center modules in order
-    pub fn center_modules(&self) -> Vec<&Box<dyn Module>> {
+    pub fn center_modules(&self) -> Vec<&dyn Module> {
         self.order_center
             .iter()
-            .filter_map(|id| self.modules.get(id))
+            .filter_map(|id| self.modules.get(id).map(|b| b.as_ref()))
             .collect()
     }
 
     /// Get right-side modules in order
-    pub fn right_modules(&self) -> Vec<&Box<dyn Module>> {
+    pub fn right_modules(&self) -> Vec<&dyn Module> {
         self.order_right
             .iter()
-            .filter_map(|id| self.modules.get(id))
+            .filter_map(|id| self.modules.get(id).map(|b| b.as_ref()))
             .collect()
     }
 
