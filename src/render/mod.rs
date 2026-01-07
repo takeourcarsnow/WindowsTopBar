@@ -522,6 +522,16 @@ impl Renderer {
 
                                                     let _ = SelectObject(hdc, old_pen);
                                                     let _ = DeleteObject(pen);
+
+                                                    // Small label indicating which graph this is
+                                                    let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                                    let prev_font = SelectObject(hdc, small_font);
+                                                    let _ = SetTextColor(hdc, theme.cpu_normal.colorref());
+                                                    let label_x = rect.x + item_padding + 2;
+                                                    let label_y = rect.y + 2;
+                                                    self.draw_text(hdc, label_x, label_y, "CPU");
+                                                    let _ = SelectObject(hdc, prev_font);
+                                                    let _ = DeleteObject(small_font);
                                                 }
                                             }
                                         }
@@ -705,6 +715,16 @@ impl Renderer {
 
                                                     let _ = SelectObject(hdc, old_pen);
                                                     let _ = DeleteObject(pen);
+
+                                                    // Small label indicating which graph this is
+                                                    let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                                    let prev_font = SelectObject(hdc, small_font);
+                                                    let _ = SetTextColor(hdc, theme.accent.colorref());
+                                                    let label_x = rect.x + item_padding + 2;
+                                                    let label_y = rect.y + 2;
+                                                    self.draw_text(hdc, label_x, label_y, "GPU");
+                                                    let _ = SelectObject(hdc, prev_font);
+                                                    let _ = DeleteObject(small_font);
                                                 }
                                             }
                                         }
