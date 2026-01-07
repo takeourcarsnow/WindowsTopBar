@@ -66,7 +66,7 @@ impl ActiveWindowModule {
     /// Force an immediate update
     fn force_update(&mut self) {
         // Get title, process name and process id for the foreground window
-        let (title, process, pid) = self.get_active_window_info();
+        let (title, process, pid, path) = self.get_active_window_info();
 
         // Compare to our own process id when possible
         let own_pid = unsafe { GetCurrentProcessId() };
@@ -96,6 +96,8 @@ impl ActiveWindowModule {
             if title == self.last_non_topbar_title && process == self.last_non_topbar_process {
                 self.window_title = title.clone();
                 self.process_name = process.clone();
+                self.process_path = path.clone();
+                self.process_pid = pid;
                 self.candidate_since = None;
             } else {
                 // New candidate focus
@@ -105,14 +107,16 @@ impl ActiveWindowModule {
                     self.last_non_topbar_process = process.clone();
                     self.window_title = title.clone();
                     self.process_name = process.clone();
+                    self.process_path = path.clone();
+                    self.process_pid = pid;
                     self.candidate_since = None;
                 } else {
                     // If candidate changed, reset timer
                     if self.candidate_since.is_none() || self.candidate_title != title || self.candidate_process != process || self.candidate_pid != pid {
                         self.candidate_title = title.clone();
                         self.candidate_process = process.clone();
-                        // Store the current process path (gathered earlier during get_active_window_info)
-                        self.candidate_process_path = self.process_path.clone();
+                        // Store the current process path from this foreground window (do not commit yet)
+                        self.candidate_process_path = path.clone();
                         self.candidate_pid = pid;
                         self.candidate_since = Some(now);
                     } else if let Some(since) = self.candidate_since {
@@ -155,11 +159,11 @@ impl ActiveWindowModule {
     }
 
     /// Get active window information
-    fn get_active_window_info(&mut self) -> (String, String, u32) {
+    fn get_active_window_info(&mut self) -> (String, String, u32, String) {
         unsafe {
             let hwnd = GetForegroundWindow();
             if hwnd.0.is_null() {
-                return (String::new(), String::new(), 0);
+                return (String::new(), String::new(), 0, String::new());
             }
 
             // Get window title
@@ -171,26 +175,25 @@ impl ActiveWindowModule {
 
             // Try to get full process path for icon lookup
             let path = self.try_get_process_path(hwnd);
-            if !path.is_empty() {
-                self.process_path = path.clone();
-            }
+            // NOTE: don't assign to `self.process_path` here — defer committing it until the
+            // focus candidate is accepted so the icon updates together with the displayed name.
 
             // Determine display name from path or fallback to module base name
-            let display_name = if !self.process_path.is_empty() {
-                if let Some(filename) = std::path::Path::new(&self.process_path).file_name() {
+            let display_name = if !path.is_empty() {
+                if let Some(filename) = std::path::Path::new(&path).file_name() {
                     filename.to_string_lossy().to_string()
                 } else {
-                    self.process_path.clone()
+                    path.clone()
                 }
             } else {
                 // Fallback to existing module name extraction
                 self.get_process_name(hwnd)
             };
 
+            // Note: do not store `self.process_path` here; the caller will decide when to commit it
             // Store current pid
-            self.process_pid = process_id;
-
-            (title, display_name, process_id)
+            // (we still return path so the caller can use it when committing)
+            (title, display_name, process_id, path)
         }
     }
 
