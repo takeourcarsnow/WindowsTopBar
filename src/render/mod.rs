@@ -757,7 +757,14 @@ impl Renderer {
                         let bluetooth_text = self
                             .module_registry
                             .get("bluetooth")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| {
+                                let t = m.display_text(&*config);
+                                if t.trim().is_empty() {
+                                    self.icons.get("bluetooth")
+                                } else {
+                                    t
+                                }
+                            })
                             .unwrap_or_else(|| self.icons.get("bluetooth"));
                         let (text_width, _) = self.measure_text(hdc, &bluetooth_text);
                         x -= text_width + item_padding * 2;
@@ -806,70 +813,46 @@ impl Renderer {
                                     let center_y = rect.y + rect.height / 2;
                                     let radius = (rect.width.min(rect.height) / 2 - 2) as f32;
                                     
-                                    // Draw used portion (filled arc)
-                                    if usage_percent > 0.0 {
-                                        let used_angle = (usage_percent * 360.0f32).to_radians();
-                                        let start_angle = -90.0f32.to_radians(); // Start from top
-                                        let end_angle = start_angle + used_angle;
-                                        
-                                        let steps = ((used_angle / std::f32::consts::PI * 180.0) as i32).max(8);
-                                        let angle_step = used_angle / steps as f32;
-                                        
-                                        let mut points = Vec::new();
-                                        points.push((center_x, center_y)); // Center point
-                                        
-                                        for i in 0..=steps {
-                                            let angle = start_angle + angle_step * i as f32;
-                                            let px = center_x + (angle.cos() * radius) as i32;
-                                            let py = center_y + (angle.sin() * radius) as i32;
-                                            points.push((px, py));
-                                        }
-                                        
-                                        if points.len() >= 3 {
-                                            let pie_brush = CreateSolidBrush(theme.accent.colorref());
-                                            let pie_pen = CreatePen(PS_SOLID, 1, theme.accent.colorref());
-                                            let old_pen = SelectObject(hdc, pie_pen);
-                                            let old_brush = SelectObject(hdc, pie_brush);
-                                            
-let vertices: Vec<windows::Win32::Foundation::POINT> = points.iter()
-                                            .map(|(x, y)| windows::Win32::Foundation::POINT { x: *x, y: *y })
-                                                .collect();
-                                            
-                                            let _ = Polygon(hdc, &vertices);
-                                            let _ = SelectObject(hdc, old_brush);
-                                            let _ = SelectObject(hdc, old_pen);
-                                            let _ = DeleteObject(pie_brush);
-                                            let _ = DeleteObject(pie_pen);
-                                        }
+                                    // Minimalistic ring-style disk usage: dark, monochrome, simple arc
+                                    let center_x = rect.x + rect.width / 2;
+                                    let center_y = rect.y + rect.height / 2;
+                                    let radius = (rect.width.min(rect.height) / 2 - 2) as f32;
+                                    let steps = 40;
+                                    let angle_step = 2.0 * std::f32::consts::PI / steps as f32;
+
+                                    // Background ring (subtle)
+                                    let bg_pen = CreatePen(PS_SOLID, 2, theme.text_secondary.colorref());
+                                    let old_pen = SelectObject(hdc, bg_pen);
+                                    for i in 0..steps {
+                                        let angle1 = -std::f32::consts::PI / 2.0 + angle_step * i as f32;
+                                        let angle2 = -std::f32::consts::PI / 2.0 + angle_step * (i + 1) as f32;
+                                        let x1 = center_x + (angle1.cos() * radius) as i32;
+                                        let y1 = center_y + (angle1.sin() * radius) as i32;
+                                        let x2 = center_x + (angle2.cos() * radius) as i32;
+                                        let y2 = center_y + (angle2.sin() * radius) as i32;
+                                        let _ = MoveToEx(hdc, x1, y1, None);
+                                        let _ = LineTo(hdc, x2, y2);
                                     }
-                                    
-                                    // Draw remaining portion (outline)
-                                    let remaining_angle = ((1.0 - usage_percent) * 360.0f32).to_radians();
-                                    if remaining_angle > 0.0 {
-                                        let start_angle = (-90.0f32 + usage_percent * 360.0f32).to_radians();
-                                        let end_angle = start_angle + remaining_angle;
-                                        
-                                        let steps = ((remaining_angle / std::f32::consts::PI * 180.0) as i32).max(8);
-                                        let angle_step = remaining_angle / steps as f32;
-                                        
-                                        let outline_pen = CreatePen(PS_SOLID, 2, theme.text_secondary.colorref());
-                                        let old_pen = SelectObject(hdc, outline_pen);
-                                        
-                                        for i in 0..steps {
-                                            let angle1 = start_angle + angle_step * i as f32;
-                                            let angle2 = start_angle + angle_step * (i + 1) as f32;
-                                            
+                                    let _ = SelectObject(hdc, old_pen);
+                                    let _ = DeleteObject(bg_pen);
+
+                                    // Used arc (primary color, thicker)
+                                    if usage_percent > 0.0 {
+                                        let used_steps = (steps as f32 * usage_percent).ceil() as i32;
+                                        let fg_pen = CreatePen(PS_SOLID, 3, theme.text_primary.colorref());
+                                        let old_pen = SelectObject(hdc, fg_pen);
+                                        for i in 0..used_steps {
+                                            let angle1 = -std::f32::consts::PI / 2.0 + angle_step * i as f32;
+                                            let angle2 = -std::f32::consts::PI / 2.0 + angle_step * (i + 1) as f32;
                                             let x1 = center_x + (angle1.cos() * radius) as i32;
                                             let y1 = center_y + (angle1.sin() * radius) as i32;
                                             let x2 = center_x + (angle2.cos() * radius) as i32;
                                             let y2 = center_y + (angle2.sin() * radius) as i32;
-                                            
                                             let _ = MoveToEx(hdc, x1, y1, None);
                                             let _ = LineTo(hdc, x2, y2);
                                         }
-                                        
                                         let _ = SelectObject(hdc, old_pen);
-                                        let _ = DeleteObject(outline_pen);
+                                        let _ = DeleteObject(fg_pen);
                                     }
                                 }
                             }
