@@ -1654,6 +1654,7 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "disk" => show_disk_menu(hwnd, pt.x, pt.y),
         "clipboard" => show_clipboard_menu(hwnd, pt.x, pt.y),
         "app_menu" => show_app_menu(hwnd, pt.x, pt.y),
+        "weather" => show_weather_menu(hwnd, pt.x, pt.y),
         _ => {
             debug!("Unhandled module click: {}", module_id);
         }
@@ -1699,6 +1700,10 @@ const DISK_SELECT_BASE: u32 = 3100;
 
 // Clipboard history base (dynamic entries)
 const CLIPBOARD_BASE: u32 = 4000;
+
+// Weather menu IDs
+const WEATHER_OPEN: u32 = 6001;
+const WEATHER_REFRESH: u32 = 6002;
 
 // Clock center toggle
 const CLOCK_CENTER: u32 = 2005;
@@ -2048,6 +2053,97 @@ fn show_sysinfo_menu(hwnd: HWND, x: i32, y: i32) {
         info!("Sysinfo menu returned cmd: {}", cmd.0);
         if cmd.0 != 0 {
             handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+/// Show weather forecast menu with upcoming days and actions
+fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() {
+            return;
+        }
+
+        // Gather forecast from module
+        let mut lines: Vec<String> = Vec::new();
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get("weather") {
+                if let Some(wm) = module.as_any().downcast_ref::<crate::modules::weather::WeatherModule>() {
+                    if let Some(data) = wm.weather_data() {
+                        if data.forecast.is_empty() {
+                            lines.push("No forecast available".to_string());
+                        } else {
+                            for fc in data.forecast.iter() {
+                                // Show raw Celsius values (config unit not accessible here)
+                                let max = fc.max;
+                                let min = fc.min;
+                                let icon = fc.condition.icon();
+                                let label = format!("{} {} {:.0}°C / {:.0}°C - {}", fc.date, icon, max, min, fc.description);
+                                lines.push(label);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if lines.is_empty() {
+            append_menu_item(menu, WEATHER_REFRESH, "Fetching weather...", false);
+        } else {
+            for (i, l) in lines.iter().enumerate() {
+                // Cap to reasonable number
+                if i >= 6 { break; }
+                append_menu_item(menu, WEATHER_OPEN + i as u32, &l, false);
+            }
+            AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
+            append_menu_item(menu, WEATHER_REFRESH, "Refresh", false);
+            append_menu_item(menu, WEATHER_OPEN, "Open Full Forecast", false);
+        }
+
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(
+            menu,
+            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
+            x,
+            y,
+            0,
+            hwnd,
+            None,
+        );
+        DestroyMenu(menu).ok();
+
+        info!("Weather menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            let cmd_id = cmd.0 as u32;
+            match cmd_id {
+                id if id >= WEATHER_OPEN && id < WEATHER_OPEN + 10 => {
+                    // Clicking a forecast day - open full forecast in browser
+                    let _ = std::process::Command::new("cmd")
+                        .args(["/c", "start", "https://wttr.in/"])
+                        .spawn();
+                }
+                WEATHER_REFRESH => {
+                    with_renderer(|renderer| {
+                        if let Some(module) = renderer.module_registry.get_mut("weather") {
+                            if let Some(wm) = module.as_any_mut().downcast_mut::<crate::modules::weather::WeatherModule>() {
+                                wm.refresh();
+                            }
+                        }
+                    });
+                    if let Some(state) = get_window_state() {
+                        state.write().needs_redraw = true;
+                    }
+                    let _ = InvalidateRect(hwnd, None, false);
+                }
+                WEATHER_OPEN => {
+                    // Open in browser
+                    let _ = std::process::Command::new("cmd")
+                        .args(["/c", "start", "https://wttr.in/"])
+                        .spawn();
+                }
+                _ => {}
+            }
         }
     }
 }

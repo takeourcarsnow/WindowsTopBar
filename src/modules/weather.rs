@@ -63,6 +63,16 @@ impl WeatherCondition {
     }
 }
 
+/// Daily forecast entry
+#[derive(Debug, Clone)]
+pub struct DailyForecast {
+    pub date: String,
+    pub max: f32,
+    pub min: f32,
+    pub description: String,
+    pub condition: WeatherCondition,
+}
+
 /// Weather data
 #[derive(Debug, Clone)]
 pub struct WeatherData {
@@ -76,6 +86,7 @@ pub struct WeatherData {
     pub low: f32,
     pub wind_speed: f32,
     pub wind_dir: String,
+    pub forecast: Vec<DailyForecast>,
 }
 
 impl Default for WeatherData {
@@ -91,6 +102,7 @@ impl Default for WeatherData {
             low: 0.0,
             wind_speed: 0.0,
             wind_dir: String::new(),
+            forecast: Vec::new(),
         }
     }
 }
@@ -396,6 +408,53 @@ impl WeatherModule {
             (temp_c, temp_c)
         };
 
+        // Build multi-day forecast list (use up to 5 days)
+        let mut forecasts: Vec<DailyForecast> = Vec::new();
+        if let Some(days) = parsed.get("weather").and_then(|w| w.as_array()) {
+            for day in days.iter().take(5) {
+                let date = day.get("date").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let max = day
+                    .get("maxtempC")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<f32>().ok())
+                    .unwrap_or(temp_c);
+                let min = day
+                    .get("mintempC")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<f32>().ok())
+                    .unwrap_or(temp_c);
+
+                let desc = day
+                    .get("hourly")
+                    .and_then(|h| h.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|h0| h0.get("weatherDesc"))
+                    .and_then(|d| d.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|v| v.get("value"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                let code = day
+                    .get("hourly")
+                    .and_then(|h| h.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|h0| h0.get("weatherCode"))
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .unwrap_or(0);
+
+                forecasts.push(DailyForecast {
+                    date,
+                    max,
+                    min,
+                    description: desc,
+                    condition: WeatherCondition::from_wwo_code(code),
+                });
+            }
+        }
+
         let location_str = if country.is_empty() {
             area_name.to_string()
         } else {
@@ -413,6 +472,7 @@ impl WeatherModule {
             low,
             wind_speed,
             wind_dir,
+            forecast: forecasts,
         })
     }
 
@@ -511,18 +571,55 @@ impl Module for WeatherModule {
     }
 
     fn on_click(&mut self) {
-        // If location not found, prompt could be shown via config
-        // Otherwise open weather website with location
-        let location = if self.location.eq_ignore_ascii_case("auto") {
-            String::new()
-        } else {
-            self.location.replace(' ', "+")
-        };
+        // Show an in-app forecast popup with upcoming days, fall back to opening wttr.in
+        let data_opt = self.weather_data.lock().unwrap().clone();
+        if let Some(data) = data_opt {
+            // Build message string
+            let mut msg = format!("{} — {}\n\n", data.location, data.description);
+            msg.push_str("Upcoming forecast:\n");
+            for fc in data.forecast.iter() {
+                let max = self.convert_temp(fc.max);
+                let min = self.convert_temp(fc.min);
+                let icon = fc.condition.icon();
+                let line = format!("{} {} {:.0}° / {:.0}° - {}\n", fc.date, icon, max, min, fc.description);
+                msg.push_str(&line);
+            }
 
-        let url = format!("https://wttr.in/{}", location);
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", &url])
-            .spawn();
+            msg.push_str("\nOpen full forecast in browser?");
+
+            // Show MessageBox with Yes/No
+            use crate::utils::to_wide_string;
+            use windows::core::PCWSTR;
+            use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_YESNO, MB_ICONINFORMATION, IDYES};
+
+            let title = to_wide_string("Weather");
+            let text = to_wide_string(&msg);
+
+            let resp = unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_YESNO | MB_ICONINFORMATION) };
+            if resp == IDYES {
+                let location = if self.location.eq_ignore_ascii_case("auto") {
+                    String::new()
+                } else {
+                    self.location.replace(' ', "+")
+                };
+                let url = format!("https://wttr.in/{}", location);
+                let _ = std::process::Command::new("cmd")
+                    .args(["/c", "start", &url])
+                    .spawn();
+            }
+        } else {
+            // No data yet - request fetch and open website
+            self.fetch_weather_async();
+            let location = if self.location.eq_ignore_ascii_case("auto") {
+                String::new()
+            } else {
+                self.location.replace(' ', "+")
+            };
+            let url = format!("https://wttr.in/{}", location);
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", "start", &url])
+                .spawn();
+        }
     }
 
     fn tooltip(&self) -> Option<String> {
