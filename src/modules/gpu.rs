@@ -3,6 +3,7 @@
 use std::time::Instant;
 
 use super::Module;
+use windows::core::Interface;
 
 /// GPU information
 #[derive(Debug, Clone, Default)]
@@ -117,19 +118,78 @@ impl GpuModule {
                     std::thread::sleep(std::time::Duration::from_millis(100));
                     let _ = PdhCollectQueryData(query);
 
-                    let mut value = PDH_FMT_COUNTERVALUE::default();
-                    if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
-                        self.gpu_info.usage = value.Anonymous.doubleValue as f32;
-                        // Close query
-                        let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
-                        return true;
+                    // Try to get per-instance values via PdhGetFormattedCounterArrayW and sum them
+                    use windows::Win32::System::Performance::{PdhGetFormattedCounterArrayW, PDH_FMT_COUNTERVALUE_ITEM_W};
+                    unsafe {
+                        let mut buf_size: u32 = 0;
+                        let mut item_count: u32 = 0;
+                        // First call to get required buffer size
+                        let status_array = PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut buf_size, &mut item_count, Some(std::ptr::null_mut()));
+                        if status_array == 0 && item_count > 0 {
+                            // Shouldn't happen since buffer is null, but handle anyway
+                        }
+
+                        if buf_size > 0 {
+                            // Allocate buffer
+                            let mut buffer: Vec<u8> = vec![0u8; buf_size as usize];
+                            let ptr = buffer.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W;
+                            let status_array2 = PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut buf_size, &mut item_count, Some(ptr));
+                            if status_array2 == 0 && item_count > 0 {
+                                let mut sum = 0.0f64;
+                                for i in 0..item_count as isize {
+                                    let item = ptr.offset(i);
+                                    let val = (*item).FmtValue.Anonymous.doubleValue as f64;
+                                    sum += val;
+                                }
+                                // Average or clamp to 100
+                                let usage = sum.min(100.0) as f32;
+                                self.gpu_info.usage = usage;
+                                let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
+                                return true;
+                            }
+                        }
+
+                        // Fallback to formatted counter value
+                        let mut value = PDH_FMT_COUNTERVALUE::default();
+                        if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
+                            self.gpu_info.usage = value.Anonymous.doubleValue as f32;
+                            let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
+                            return true;
+                        }
                     }
                 }
             }
 
             // If all counters failed, use fallback
             self.gpu_info.usage = self.estimate_gpu_usage();
-            
+
+            // Try GPU adapter memory counter as fallback for memory used
+            let mem_path = crate::utils::to_wide_string("\\GPU Adapter Memory(*)\\Dedicated Bytes");
+            let mut mem_counter = 0isize;
+            if PdhAddEnglishCounterW(query, PCWSTR(mem_path.as_ptr()), 0, &mut mem_counter) == 0 {
+                let _ = PdhCollectQueryData(query);
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = PdhCollectQueryData(query);
+                let mut mem_value = PDH_FMT_COUNTERVALUE::default();
+                if PdhGetFormattedCounterValue(mem_counter, PDH_FMT_DOUBLE, None, &mut mem_value) == 0 {
+                    // mem_value is in bytes
+                    self.gpu_info.memory_used = mem_value.Anonymous.doubleValue as u64;
+                }
+            }
+
+            // Try GPU temperature counter if available
+            let temp_path = crate::utils::to_wide_string("\\GPU Temperature(*)\\Temperature");
+            let mut temp_counter = 0isize;
+            if PdhAddEnglishCounterW(query, PCWSTR(temp_path.as_ptr()), 0, &mut temp_counter) == 0 {
+                let _ = PdhCollectQueryData(query);
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = PdhCollectQueryData(query);
+                let mut temp_value = PDH_FMT_COUNTERVALUE::default();
+                if PdhGetFormattedCounterValue(temp_counter, PDH_FMT_DOUBLE, None, &mut temp_value) == 0 {
+                    self.gpu_info.temperature = Some(temp_value.Anonymous.doubleValue as f32);
+                }
+            }
+
             // Close query
             let _ = windows::Win32::System::Performance::PdhCloseQuery(query);
             false
@@ -172,6 +232,22 @@ impl GpuModule {
                     
                     if self.gpu_info.memory_total == 0 {
                         self.gpu_info.memory_total = desc.DedicatedVideoMemory as u64;
+                    }
+                }
+
+                // Try to query current video memory usage via IDXGIAdapter3 if available
+                if let Ok(adapter3) = adapter.cast::<windows::Win32::Graphics::Dxgi::IDXGIAdapter3>() {
+                    use windows::Win32::Graphics::Dxgi::{DXGI_MEMORY_SEGMENT_GROUP, DXGI_QUERY_VIDEO_MEMORY_INFO};
+                    unsafe {
+                        let mut info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
+                        if adapter3.QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP(0), &mut info).is_ok() {
+                            // CurrentUsage is the number of bytes currently used
+                            self.gpu_info.memory_used = info.CurrentUsage as u64;
+                            if self.gpu_info.memory_total == 0 {
+                                // If we didn't get dedicated memory earlier, set from budget
+                                self.gpu_info.memory_total = info.Budget as u64;
+                            }
+                        }
                     }
                 }
             }
