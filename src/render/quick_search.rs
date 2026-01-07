@@ -57,19 +57,8 @@ pub fn show_quick_search(parent: HWND) -> Result<()> {
         let _ = SetForegroundWindow(hwnd);
         let _ = SetFocus(hwnd);
 
-        // Apply rounded corners + acrylic/frosted glass when available
-        if let Some(gs) = get_window_state() {
-            let dark = gs.read().theme_manager.is_dark();
-            let _ = EffectsManager::apply_menu_effects(hwnd, dark);
-            let _ = EffectsManager::extend_frame_into_client(hwnd);
-        } else {
-            let _ = EffectsManager::apply_menu_effects(hwnd, true);
-            let _ = EffectsManager::extend_frame_into_client(hwnd);
-        }
-
-        // Fallback rounded region for older systems
-        let rgn = CreateRoundRectRgn(0, 0, WIN_WIDTH + 1, WIN_HEIGHT + 1, 14, 14);
-        let _ = SetWindowRgn(hwnd, rgn, true);
+        // Simplified window chrome: no acrylic/frosted glass or rounded corners to avoid rendering glitches.
+        // The background is painted as a solid color in WM_PAINT.
     }
 
     // Store state
@@ -134,46 +123,24 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 if let Some(gs) = get_window_state() {
                     let theme = gs.read().theme_manager.theme().clone();
 
-                    // Darker frosted background (stronger tint)
-                    let bg = CreateSolidBrush(Color::rgb(6, 6, 8).colorref());
+                    // Dark solid background (dark grey)
+                    let bg = CreateSolidBrush(Color::rgb(28, 28, 30).colorref());
                     FillRect(hdc, &ps.rcPaint, bg);
                     let _ = DeleteObject(bg);
 
-                    // No rectangular backdrop for the input — keep it fully transparent so the frosted glass shows through
+                    // No rectangular backdrop for the input — keep text background transparent over the solid fill
                     SetBkMode(hdc, TRANSPARENT);
 
-                    // Create larger font for search input
+                    // Create slightly smaller font for search input for a simpler, more stable render
                     let input_font = CreateFontW(
-                        22, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
+                        18, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
                         DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
                         PCWSTR(to_wide("Segoe UI").as_ptr())
                     );
                     let old_font = SelectObject(hdc, input_font);
 
-                    // Draw search icon using the same glyph as the bar icon
-                    // Draw the search glyph used by the bar button, larger and without a backing fill
-                    let icon = crate::render::Icons::new().get("search");
-                    // Use a larger font size for the glyph so it matches the bar icon scale
-                    let icon_font = CreateFontW(
-                        26, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
-                        DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
-                        PCWSTR(to_wide("Segoe UI Symbol").as_ptr())
-                    );
-                    let old_icon_font = SelectObject(hdc, icon_font);
-                    // Ensure transparent background for glyph drawing
-                    SetBkMode(hdc, TRANSPARENT);
-                    // Accent the icon if the field is focused or user has typed
-                    let icon_color = if state.focused || !state.input.is_empty() {
-                        theme.accent.colorref()
-                    } else {
-                        theme.text_secondary.colorref()
-                    };
-                    SetTextColor(hdc, icon_color);
-                    let icon_wide: Vec<u16> = icon.encode_utf16().chain(std::iter::once(0)).collect();
-                    // Draw a single glyph at left inside the input without any background
-                    let _ = TextOutW(hdc, 28, 18, &icon_wide[..icon_wide.len() - 1]);
-                    let _ = SelectObject(hdc, old_icon_font);
-                    let _ = DeleteObject(icon_font);
+                    // Simplified input: no decorative glyph to reduce rendering complexity and glitches. Left padding preserved.
+                    // (Previously a large glyph was drawn here; removed for simplicity.)
 
                     // Input text (shifted further right to account for larger icon)
                     SetTextColor(hdc, Color::rgb(245, 245, 245).colorref());
@@ -193,12 +160,14 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                         state.input.clone()
                     };
                     let wide: Vec<u16> = display.encode_utf16().chain(std::iter::once(0)).collect();
-                    let _ = TextOutW(hdc, 88, 20, &wide[..wide.len() - 1]);
+                    // Draw input text starting closer to the left edge for a simpler layout
+                    let _ = TextOutW(hdc, 32, 20, &wide[..wide.len() - 1]);
 
-                    // Draw cursor if has input
-                    if !state.input.is_empty() {
-                        // Approximate cursor position
-                        let cursor_x = 88 + (state.input.len() as i32 * 10);
+                    // Draw cursor at end of visible input text using measured width to avoid mispositioning
+                    if state.focused && !state.input.is_empty() {
+                        let mut size = windows::Win32::Foundation::SIZE { cx: 0, cy: 0 };
+                        let _ = GetTextExtentPoint32W(hdc, &wide[..wide.len() - 1], &mut size);
+                        let cursor_x = 32 + size.cx; // match input left offset
                         let cursor_brush = CreateSolidBrush(Color::rgb(245, 245, 245).colorref());
                         let cursor_rect = windows::Win32::Foundation::RECT {
                             left: cursor_x, top: 20, right: cursor_x + 2, bottom: 42
@@ -333,7 +302,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     _ => {}
                 }
                 do_search(state);
-                let _ = InvalidateRect(hwnd, None, true);
+                // Invalidate without erasing background to avoid flicker
+                let _ = InvalidateRect(hwnd, None, false);
             }
             LRESULT(0)
         }
@@ -346,8 +316,11 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     if let Some(state) = get_state_mut(hwnd) {
                         if !state.results.is_empty() {
                             let max = state.results.len().min(MAX_RESULTS);
+                            let old = state.selected;
                             state.selected = if state.selected == 0 { max - 1 } else { state.selected - 1 };
-                            let _ = InvalidateRect(hwnd, None, true);
+                            // Only redraw the previously selected and newly selected rows to avoid flashing
+                            invalidate_result_row(hwnd, old);
+                            invalidate_result_row(hwnd, state.selected);
                         }
                     }
                 }
@@ -355,8 +328,10 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     if let Some(state) = get_state_mut(hwnd) {
                         if !state.results.is_empty() {
                             let max = state.results.len().min(MAX_RESULTS);
+                            let old = state.selected;
                             state.selected = (state.selected + 1) % max;
-                            let _ = InvalidateRect(hwnd, None, true);
+                            invalidate_result_row(hwnd, old);
+                            invalidate_result_row(hwnd, state.selected);
                         }
                     }
                 }
@@ -407,9 +382,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
 
         WM_TIMER => {
             if !search::is_index_ready() {
-                let _ = InvalidateRect(hwnd, None, true);
-            } else {
-                let _ = KillTimer(hwnd, 1);
+                    // Update without erasing background to avoid flicker
+                    let _ = InvalidateRect(hwnd, None, false);
             }
             LRESULT(0)
         }
@@ -441,6 +415,17 @@ fn do_search(state: &mut SearchState) {
                 state.results = idx.search_prefix(&state.input, 200);
             }
         }
+    }
+}
+
+fn invalidate_result_row(hwnd: HWND, idx: usize) {
+    unsafe {
+        if idx >= MAX_RESULTS { return; }
+        let top = RESULTS_START_Y + (idx as i32) * ROW_HEIGHT;
+        let rect = windows::Win32::Foundation::RECT {
+            left: 8, top, right: WIN_WIDTH - 8, bottom: top + ROW_HEIGHT
+        };
+        let _ = InvalidateRect(hwnd, Some(&rect), false);
     }
 }
 
