@@ -10,3 +10,4 @@ disk activity indicator does nothing
 
 i switch to lithuanian layout but it shows up as unknown or ??
 
+update ui ux fonts to be more modern, not default windows white menus/modals like now

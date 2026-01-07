@@ -363,3 +363,44 @@ pub fn is_elevated() -> bool {
         }
     }
 }
+
+/// Enable dark mode for Windows context menus
+/// This uses undocumented Windows APIs to enable dark mode for popup menus
+pub fn enable_dark_mode_for_app(enable: bool) {
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    use windows::core::PCSTR;
+    
+    unsafe {
+        // Load uxtheme.dll
+        let uxtheme: Vec<u16> = "uxtheme.dll\0".encode_utf16().collect();
+        let module = LoadLibraryW(windows::core::PCWSTR::from_raw(uxtheme.as_ptr()));
+        
+        if let Ok(module) = module {
+            // SetPreferredAppMode (ordinal 135) - Windows 10 1903+
+            // 0 = Default, 1 = AllowDark, 2 = ForceDark, 3 = ForceLight
+            type SetPreferredAppModeFn = unsafe extern "system" fn(i32) -> i32;
+            
+            if let Some(func) = GetProcAddress(module, PCSTR::from_raw(135usize as *const u8)) {
+                let set_preferred_app_mode: SetPreferredAppModeFn = std::mem::transmute(func);
+                let mode = if enable { 2 } else { 0 };  // ForceDark or Default
+                set_preferred_app_mode(mode);
+            }
+            
+            // FlushMenuThemes (ordinal 136) - Force refresh of menu themes
+            type FlushMenuThemesFn = unsafe extern "system" fn();
+            
+            if let Some(func) = GetProcAddress(module, PCSTR::from_raw(136usize as *const u8)) {
+                let flush_menu_themes: FlushMenuThemesFn = std::mem::transmute(func);
+                flush_menu_themes();
+            }
+            
+            // AllowDarkModeForApp (ordinal 132) - Older method for pre-1903
+            type AllowDarkModeForAppFn = unsafe extern "system" fn(i32) -> i32;
+            
+            if let Some(func) = GetProcAddress(module, PCSTR::from_raw(132usize as *const u8)) {
+                let allow_dark_mode: AllowDarkModeForAppFn = std::mem::transmute(func);
+                allow_dark_mode(if enable { 1 } else { 0 });
+            }
+        }
+    }
+}

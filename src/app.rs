@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::tray::TrayIcon;
 use crate::window::WindowManager;
+use crate::utils::enable_dark_mode_for_app;
 
 /// Main application state
 pub struct Application {
@@ -22,6 +23,9 @@ impl Application {
     /// Create a new application instance
     pub fn new(config: Arc<Config>) -> Result<Self> {
         info!("Initializing TopBar application");
+
+        // Enable dark mode for Windows context menus
+        enable_dark_mode_for_app(true);
 
         // Create the main window
         let window_manager = WindowManager::new(config.clone())?;

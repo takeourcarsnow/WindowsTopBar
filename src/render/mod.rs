@@ -208,7 +208,7 @@ impl Renderer {
                 x -= item_spacing;
             }
 
-            // Battery
+            // Battery - use fixed width to prevent shifting
             if right_modules.contains(&"battery".to_string()) {
                 let battery_text = self.module_registry
                     .get("battery")
@@ -218,26 +218,28 @@ impl Renderer {
                         format!("{} --", icon)
                     });
                 if !battery_text.is_empty() {
-                    let (text_width, _) = self.measure_text(hdc, &battery_text);
-                    x -= text_width + item_padding * 2;
-                    let battery_rect = self.draw_module_text(
-                        hdc, x, bar_rect.height, &battery_text, item_padding, theme, false
+                    // Min width for "🔋 100%" format
+                    let min_width = self.scale(70);
+                    x -= min_width;
+                    let battery_rect = self.draw_module_text_fixed(
+                        hdc, x, bar_rect.height, &battery_text, item_padding, min_width, theme
                     );
                     self.module_bounds.insert("battery".to_string(), battery_rect);
                     x -= item_spacing;
                 }
             }
 
-            // Volume
+            // Volume - use fixed width to prevent shifting
             if right_modules.contains(&"volume".to_string()) {
                 let volume_text = self.module_registry
                     .get("volume")
                     .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| self.icons.get("volume_high"));
-                let (text_width, _) = self.measure_text(hdc, &volume_text);
-                x -= text_width + item_padding * 2;
-                let volume_rect = self.draw_module_text(
-                    hdc, x, bar_rect.height, &volume_text, item_padding, theme, false
+                // Min width for "🔊 100%" format
+                let min_width = self.scale(68);
+                x -= min_width;
+                let volume_rect = self.draw_module_text_fixed(
+                    hdc, x, bar_rect.height, &volume_text, item_padding, min_width, theme
                 );
                 self.module_bounds.insert("volume".to_string(), volume_rect);
                 x -= item_spacing;
@@ -312,10 +314,11 @@ impl Renderer {
                         .get("system_info")
                         .map(|m| m.display_text(&*config))
                         .unwrap_or_else(|| "CPU --  MEM --".to_string());
-                    let (text_width, _) = self.measure_text(hdc, &sysinfo_text);
-                    x -= text_width + item_padding * 2;
-                    let sysinfo_rect = self.draw_module_text(
-                        hdc, x, bar_rect.height, &sysinfo_text, item_padding, theme, false
+                    // Fixed width for "CPU 100%  MEM 100%" format
+                    let min_width = self.scale(155);
+                    x -= min_width;
+                    let sysinfo_rect = self.draw_module_text_fixed(
+                        hdc, x, bar_rect.height, &sysinfo_text, item_padding, min_width, theme
                     );
                     self.module_bounds.insert("system_info".to_string(), sysinfo_rect);
                     x -= item_spacing;
@@ -398,10 +401,11 @@ impl Renderer {
                         .get("gpu")
                         .map(|m| m.display_text(&*config))
                         .unwrap_or_else(|| self.icons.get("gpu"));
-                    let (text_width, _) = self.measure_text(hdc, &gpu_text);
-                    x -= text_width + item_padding * 2;
-                    let gpu_rect = self.draw_module_text(
-                        hdc, x, bar_rect.height, &gpu_text, item_padding, theme, false
+                    // Fixed width for "GPU 100%" format
+                    let min_width = self.scale(75);
+                    x -= min_width;
+                    let gpu_rect = self.draw_module_text_fixed(
+                        hdc, x, bar_rect.height, &gpu_text, item_padding, min_width, theme
                     );
                     self.module_bounds.insert("gpu".to_string(), gpu_rect);
                     x -= item_spacing;
@@ -423,16 +427,17 @@ impl Renderer {
                 x -= item_spacing;
             }
 
-            // System uptime
+            // System uptime - use fixed width for time display
             if right_modules.contains(&"uptime".to_string()) {
                 let uptime_text = self.module_registry
                     .get("uptime")
                     .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| "0d 0h".to_string());
-                let (text_width, _) = self.measure_text(hdc, &uptime_text);
-                x -= text_width + item_padding * 2;
-                let uptime_rect = self.draw_module_text(
-                    hdc, x, bar_rect.height, &uptime_text, item_padding, theme, false
+                // Fixed width for "99d 23h" format
+                let min_width = self.scale(72);
+                x -= min_width;
+                let uptime_rect = self.draw_module_text_fixed(
+                    hdc, x, bar_rect.height, &uptime_text, item_padding, min_width, theme
                 );
                 self.module_bounds.insert("uptime".to_string(), uptime_rect);
                 x -= item_spacing;
@@ -535,6 +540,33 @@ impl Renderer {
             // Center text vertically with slight adjustment for visual balance
             let text_y = (bar_height - text_height) / 2;
             self.draw_text(hdc, x + padding, text_y, text);
+        }
+
+        Rect::new(x, y, width, height)
+    }
+
+    /// Draw module text with a minimum width to prevent layout shifting
+    fn draw_module_text_fixed(
+        &self,
+        hdc: HDC,
+        x: i32,
+        bar_height: i32,
+        text: &str,
+        padding: i32,
+        min_width: i32,
+        theme: &Theme,
+    ) -> Rect {
+        let (text_width, text_height) = self.measure_text(hdc, text);
+        let width = (text_width + padding * 2).max(min_width);
+        let height = text_height + padding + 2;
+        let y = (bar_height - height) / 2;
+
+        unsafe {
+            SetTextColor(hdc, theme.text_primary.to_colorref());
+            let text_y = (bar_height - text_height) / 2;
+            // Center text within the fixed width
+            let text_x = x + (width - text_width) / 2;
+            self.draw_text(hdc, text_x, text_y, text);
         }
 
         Rect::new(x, y, width, height)
