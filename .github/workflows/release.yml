@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Build release
+        run: cargo build --release --verbose
+
+      - name: Package artifact (zip)
+        shell: powershell
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $zip = "topbar-$tag.zip"
+          Compress-Archive -Path "target\release\topbar.exe" -DestinationPath $zip
+          Write-Host "Created $zip"
+
+      - name: Create GitHub Release and upload asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: topbar-${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Optional: Sign artifact (placeholder)
+        if: ${{ secrets.CODE_SIGNING_CERT != '' }}
+        run: |
+          echo "Code signing step would run here using available secrets"

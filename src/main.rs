@@ -3,7 +3,7 @@
 //! This application creates a sleek, customizable menu bar at the top of your screen,
 //! similar to macOS, with system information, app menus, and more.
 
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(test), windows_subsystem = "windows")]
 
 mod app;
 mod config;

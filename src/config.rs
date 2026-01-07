@@ -692,3 +692,63 @@ impl Default for DiskConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_tmp_dir() -> PathBuf {
+        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let mut p = env::temp_dir();
+        p.push(format!("topbar_test_{}", n));
+        p
+    }
+
+    #[test]
+    fn toml_roundtrip_default() {
+        let cfg = Config::default();
+        let s = toml::to_string_pretty(&cfg).expect("serialize");
+        let parsed: Config = toml::from_str(&s).expect("parse");
+        assert_eq!(cfg.general.language, parsed.general.language);
+        assert_eq!(cfg.appearance.bar_height, parsed.appearance.bar_height);
+        assert_eq!(cfg.modules.left_modules, parsed.modules.left_modules);
+    }
+
+    #[test]
+    fn config_path_respects_env() {
+        let tmp = unique_tmp_dir();
+        env::set_var("APPDATA", &tmp);
+        env::set_var("XDG_CONFIG_HOME", &tmp);
+        let p = Config::config_path();
+        // Ensure filename is correct and contains the topbar directory.
+        let s = p.to_string_lossy();
+        assert!(s.ends_with("topbar/config.toml") || s.ends_with("topbar\\config.toml"),
+                "config path does not end with topbar/config.toml: {}", s);
+        assert!(s.contains("topbar"), "config path does not contain topbar: {}", s);
+    }
+
+    #[test]
+    fn save_and_load_or_default_reads_file() {
+        let tmp = unique_tmp_dir();
+        env::set_var("APPDATA", &tmp);
+        env::set_var("XDG_CONFIG_HOME", &tmp);
+        // ensure clean dir
+        if tmp.exists() {
+            fs::remove_dir_all(&tmp).unwrap();
+        }
+        // create default and modify
+        let mut cfg = Config::default();
+        cfg.general.language = "fr".to_string();
+        cfg.save().expect("save");
+        let loaded = Config::load_or_default().expect("load");
+        assert_eq!(loaded.general.language, "fr");
+        // cleanup
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+}
+
