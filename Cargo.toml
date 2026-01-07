@@ -81,6 +81,9 @@ once_cell = "1.19"
 # Parking lot for better mutexes
 parking_lot = "0.12"
 
+# HTTP client for weather
+ureq = { version = "2.9", features = ["json"] }
+
 [build-dependencies]
 embed-resource = "2.4"
 

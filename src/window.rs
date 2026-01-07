@@ -857,6 +857,7 @@ const MENU_SHOW_UPTIME: u32 = 1009;
 const MENU_SHOW_BLUETOOTH: u32 = 1010;
 const MENU_SHOW_DISK: u32 = 1011;
 const MENU_SHOW_CLIPBOARD: u32 = 1012;
+const MENU_SHOW_WEATHER: u32 = 1013;
 
 // GPU menu items
 const GPU_SHOW_USAGE: u32 = 2601;
@@ -895,6 +896,7 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, MENU_SHOW_UPTIME, "System Uptime", right_modules.contains(&"uptime".to_string()));
         append_menu_item(menu, MENU_SHOW_BLUETOOTH, "Bluetooth", right_modules.contains(&"bluetooth".to_string()));
         append_menu_item(menu, MENU_SHOW_DISK, "Disk Usage", right_modules.contains(&"disk".to_string()));
+        append_menu_item(menu, MENU_SHOW_WEATHER, "Weather", right_modules.contains(&"weather".to_string()));
         
         // Separator
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
@@ -952,6 +954,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         MENU_SHOW_UPTIME => toggle_module(hwnd, "uptime"),
         MENU_SHOW_BLUETOOTH => toggle_module(hwnd, "bluetooth"),
         MENU_SHOW_DISK => toggle_module(hwnd, "disk"),
+        MENU_SHOW_WEATHER => toggle_module(hwnd, "weather"),
         MENU_SETTINGS => open_config_file(),
         MENU_RELOAD => reload_config(hwnd),
         MENU_EXIT => {

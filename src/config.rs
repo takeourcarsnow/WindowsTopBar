@@ -212,6 +212,7 @@ impl Default for ModulesConfig {
             ],
             center_modules: vec![],
             right_modules: vec![
+                "weather".to_string(),
                 "media".to_string(),
                 "keyboard_layout".to_string(),
                 "gpu".to_string(),
@@ -293,7 +294,7 @@ impl Default for SystemInfoConfig {
 pub struct WeatherConfig {
     /// Enable weather module
     pub enabled: bool,
-    /// Location (city name or coordinates)
+    /// Location (city name like "London", "New York", "Tokyo" or "auto" for automatic detection)
     pub location: String,
     /// Temperature unit (celsius or fahrenheit)
     pub unit: TemperatureUnit,
@@ -306,8 +307,8 @@ pub struct WeatherConfig {
 impl Default for WeatherConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
-            location: "auto".to_string(),
+            enabled: true,  // Enabled by default - no API key needed!
+            location: "auto".to_string(),  // Auto-detect based on IP
             unit: TemperatureUnit::Celsius,
             show_icon: true,
             update_interval_min: 30,

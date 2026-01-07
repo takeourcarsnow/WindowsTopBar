@@ -101,6 +101,7 @@ impl ModuleRegistry {
             order_left: vec!["app_menu".to_string(), "active_window".to_string()],
             order_center: vec![],
             order_right: vec![
+                "weather".to_string(),
                 "media".to_string(),
                 "clipboard".to_string(),
                 "keyboard_layout".to_string(),
@@ -128,6 +129,7 @@ impl ModuleRegistry {
         registry.register(Box::new(clipboard::ClipboardModule::new()));
         
         // Register new modules
+        registry.register(Box::new(weather::WeatherModule::new()));
         registry.register(Box::new(gpu::GpuModule::new()));
         registry.register(Box::new(keyboard_layout::KeyboardLayoutModule::new()));
         registry.register(Box::new(uptime::UptimeModule::new()));

@@ -555,6 +555,22 @@ impl Renderer {
                         x -= item_spacing;
                     }
 
+                    "weather" => {
+                        let weather_text = self.module_registry
+                            .get("weather")
+                            .map(|m| m.display_text(&*config))
+                            .unwrap_or_else(|| "🌡️ ...".to_string());
+                        if !weather_text.is_empty() {
+                            let (text_width, _) = self.measure_text(hdc, &weather_text);
+                            x -= text_width + item_padding * 2;
+                            let weather_rect = self.draw_module_text(
+                                hdc, x, bar_rect.height, &weather_text, item_padding, theme, false
+                            );
+                            self.module_bounds.insert("weather".to_string(), weather_rect);
+                            x -= item_spacing;
+                        }
+                    }
+
                     _ => {}
                 }
             }
