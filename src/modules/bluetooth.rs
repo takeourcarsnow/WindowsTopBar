@@ -193,16 +193,17 @@ impl Module for BluetoothModule {
     }
 
     fn display_text(&self, config: &crate::config::Config) -> String {
-        // Use emoji as fallback for better compatibility
+        // Use standard Bluetooth glyph (Segoe Fluent) for a simple, consistent icon
+        let bt = '\u{E702}'.to_string();
         match self.state {
-            BluetoothState::Off => "🔵○".to_string(),
-            BluetoothState::On => "🔵".to_string(),
+            BluetoothState::Off => bt.clone(),
+            BluetoothState::On => bt.clone(),
             BluetoothState::Connected => {
                 let count = self.connected_devices.len();
                 if count > 0 && config.modules.bluetooth.show_device_count {
-                    format!("🔵 {}", count)
+                    format!("{} {}", bt, count)
                 } else {
-                    "🔵●".to_string()
+                    bt.clone()
                 }
             }
             BluetoothState::Unavailable => String::new(),

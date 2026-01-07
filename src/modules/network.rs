@@ -321,36 +321,9 @@ impl NetworkModule {
                             // This helps when Windows denies access to WLAN APIs for non-elevated apps.
                             const ERROR_ACCESS_DENIED: u32 = 5;
                             if res == ERROR_ACCESS_DENIED {
-                                log::debug!("WLAN API access denied; attempting 'netsh' fallback to read SSID");
+                                log::debug!("WLAN API access denied; using generic fallback (no netsh).");
 
-                                // Attempt to run: netsh wlan show interfaces
-                                if let Ok(output) = std::process::Command::new("netsh").args(["wlan", "show", "interfaces"]).output() {
-                                    if output.status.success() {
-                                        if let Ok(s) = String::from_utf8(output.stdout) {
-                                            for line in s.lines() {
-                                                let t = line.trim();
-                                                // Match lines like: "SSID                   : MyNetwork"
-                                                if t.starts_with("SSID") && t.contains(":") {
-                                                    let parts: Vec<&str> = t.splitn(2, ':').collect();
-                                                    if parts.len() == 2 {
-                                                        let ssid = parts[1].trim();
-                                                        if !ssid.is_empty() && !ssid.starts_with("BSSID") {
-                                                            log::debug!("netsh SSID found: {}", ssid);
-                                                            self.network_name = Some(ssid.to_string());
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        log::debug!("netsh exited with non-zero status: {}", output.status);
-                                    }
-                                } else {
-                                    log::debug!("Failed to run netsh command for SSID fallback");
-                                }
-
-                                // If netsh did not provide an SSID, fall back to a generic label
+                                // Do NOT invoke external CLI tools (netsh) — use a safe generic fallback
                                 if self.network_name.is_none() {
                                     self.network_name = Some("Wi-Fi".to_string());
                                 }

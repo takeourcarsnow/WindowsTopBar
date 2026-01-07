@@ -804,33 +804,43 @@ impl Renderer {
                     }
 
                     "bluetooth" => {
-                        let bluetooth_text = self
-                            .module_registry
-                            .get("bluetooth")
-                            .map(|m| {
-                                let t = m.display_text(&*config);
-                                if t.trim().is_empty() {
-                                    self.icons.get("bluetooth")
-                                } else {
-                                    t
-                                }
-                            })
-                            .unwrap_or_else(|| self.icons.get("bluetooth"));
-                        let (text_width, _) = self.measure_text(hdc, &bluetooth_text);
-                        x -= text_width + item_padding * 2;
-                        let bluetooth_rect = self.draw_module_text(
-                            hdc,
-                            x,
-                            bar_rect.height,
-                            &bluetooth_text,
-                            item_padding,
-                            theme,
-                            false,
-                            None,
-                        );
-                        self.module_bounds
-                            .insert("bluetooth".to_string(), bluetooth_rect);
-                        x -= item_spacing;
+                        // Use Segoe Fluent Icons for the Bluetooth glyph so the E702 codepoint renders correctly
+                        let bt_font = self.create_font("Segoe Fluent Icons", self.scale(13), false);
+                        unsafe {
+                            let old_font = SelectObject(hdc, bt_font);
+
+                            let bluetooth_text = self
+                                .module_registry
+                                .get("bluetooth")
+                                .map(|m| {
+                                    let t = m.display_text(&*config);
+                                    if t.trim().is_empty() {
+                                        self.icons.get("bluetooth")
+                                    } else {
+                                        t
+                                    }
+                                })
+                                .unwrap_or_else(|| self.icons.get("bluetooth"));
+
+                            let (text_width, _) = self.measure_text(hdc, &bluetooth_text);
+                            x -= text_width + item_padding * 2;
+                            let bluetooth_rect = self.draw_module_text(
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &bluetooth_text,
+                                item_padding,
+                                theme,
+                                false,
+                                None,
+                            );
+                            self.module_bounds
+                                .insert("bluetooth".to_string(), bluetooth_rect);
+                            x -= item_spacing;
+
+                            let _ = SelectObject(hdc, old_font);
+                            let _ = DeleteObject(bt_font);
+                        }
                     }
 
                     "disk" => {

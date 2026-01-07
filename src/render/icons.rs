@@ -114,9 +114,9 @@ impl Icons {
         icons.insert("memory".to_string(), "⬢".to_string()); // Filled hexagon
         icons.insert("disk".to_string(), "⛃".to_string()); // Storage symbol
         icons.insert("gpu".to_string(), "◈".to_string()); // Diamond with dot - cleaner
-        icons.insert("bluetooth".to_string(), "ᛒ".to_string()); // Bluetooth rune symbol
-        icons.insert("bluetooth_on".to_string(), "ᛒ".to_string());
-        icons.insert("bluetooth_off".to_string(), "ᛒ".to_string());
+        icons.insert("bluetooth".to_string(), fluent::BLUETOOTH.to_string()); // Use Segoe Fluent Bluetooth glyph
+        icons.insert("bluetooth_on".to_string(), fluent::BLUETOOTH.to_string());
+        icons.insert("bluetooth_off".to_string(), fluent::BLUETOOTH.to_string());
         icons.insert("keyboard".to_string(), "🌐".to_string());
         icons.insert("uptime".to_string(), "⏱".to_string()); // Stopwatch
         icons.insert("separator".to_string(), "│".to_string()); // Vertical line separator
