@@ -36,6 +36,7 @@ windows = { version = "0.58", features = [
     "Win32_Devices_Bluetooth",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
+    "Win32_Storage_FileSystem",
 ]}
 
 # Clipboard handling

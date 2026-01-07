@@ -28,9 +28,13 @@ pub struct ActiveWindowModule {
     // Remember the last non-TopBar window so we can continue showing it when TopBar is focused
     last_non_topbar_title: String,
     last_non_topbar_process: String,
+    // Store current process path and pid for icon lookup
+    process_path: String,
+    process_pid: u32,
     // Debounce candidate focus changes to avoid showing transient windows like Explorer during Alt-Tab
     candidate_title: String,
     candidate_process: String,
+    candidate_process_path: String,
     candidate_pid: u32,
     candidate_since: Option<Instant>,
     focus_debounce_ms: u64,
@@ -46,8 +50,11 @@ impl ActiveWindowModule {
             max_title_length: 50,
             last_non_topbar_title: String::new(),
             last_non_topbar_process: String::new(),
+            process_path: String::new(),
+            process_pid: 0,
             candidate_title: String::new(),
             candidate_process: String::new(),
+            candidate_process_path: String::new(),
             candidate_pid: 0,
             candidate_since: None,
             focus_debounce_ms: 200, // ms
@@ -104,6 +111,8 @@ impl ActiveWindowModule {
                     if self.candidate_since.is_none() || self.candidate_title != title || self.candidate_process != process || self.candidate_pid != pid {
                         self.candidate_title = title.clone();
                         self.candidate_process = process.clone();
+                        // Store the current process path (gathered earlier during get_active_window_info)
+                        self.candidate_process_path = self.process_path.clone();
                         self.candidate_pid = pid;
                         self.candidate_since = Some(now);
                     } else if let Some(since) = self.candidate_since {
@@ -113,6 +122,9 @@ impl ActiveWindowModule {
                             self.last_non_topbar_process = self.candidate_process.clone();
                             self.window_title = self.last_non_topbar_title.clone();
                             self.process_name = self.last_non_topbar_process.clone();
+                            // Commit stored candidate pid/path
+                            self.process_pid = self.candidate_pid;
+                            self.process_path = self.candidate_process_path.clone();
                             self.candidate_since = None;
                         }
                     }
@@ -143,7 +155,7 @@ impl ActiveWindowModule {
     }
 
     /// Get active window information
-    fn get_active_window_info(&self) -> (String, String, u32) {
+    fn get_active_window_info(&mut self) -> (String, String, u32) {
         unsafe {
             let hwnd = GetForegroundWindow();
             if hwnd.0.is_null() {
@@ -157,10 +169,28 @@ impl ActiveWindowModule {
             let mut process_id: u32 = 0;
             GetWindowThreadProcessId(hwnd, Some(&mut process_id));
 
-            // Get process name
-            let process = self.get_process_name(hwnd);
+            // Try to get full process path for icon lookup
+            let path = self.try_get_process_path(hwnd);
+            if !path.is_empty() {
+                self.process_path = path.clone();
+            }
 
-            (title, process, process_id)
+            // Determine display name from path or fallback to module base name
+            let display_name = if !self.process_path.is_empty() {
+                if let Some(filename) = std::path::Path::new(&self.process_path).file_name() {
+                    filename.to_string_lossy().to_string()
+                } else {
+                    self.process_path.clone()
+                }
+            } else {
+                // Fallback to existing module name extraction
+                self.get_process_name(hwnd)
+            };
+
+            // Store current pid
+            self.process_pid = process_id;
+
+            (title, display_name, process_id)
         }
     }
 
@@ -180,6 +210,38 @@ impl ActiveWindowModule {
             } else {
                 String::new()
             }
+        }
+    }
+
+    /// Try to get full process path from window handle for icon lookup
+    fn try_get_process_path(&self, hwnd: HWND) -> String {
+        unsafe {
+            let mut process_id: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+
+            if process_id == 0 {
+                return String::new();
+            }
+
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id);
+            if let Ok(handle) = handle {
+                let mut buffer: Vec<u16> = vec![0; 260];
+                let mut size: u32 = buffer.len() as u32;
+                let result = QueryFullProcessImageNameW(
+                    handle,
+                    PROCESS_NAME_FORMAT(0),
+                    PWSTR(buffer.as_mut_ptr()),
+                    &mut size,
+                );
+
+                let _ = windows::Win32::Foundation::CloseHandle(handle);
+
+                if result.is_ok() && size > 0 {
+                    return String::from_utf16_lossy(&buffer[..size as usize]);
+                }
+            }
+
+            String::new()
         }
     }
 
@@ -239,6 +301,16 @@ impl ActiveWindowModule {
     /// Get the process name
     pub fn process_name(&self) -> &str {
         &self.process_name
+    }
+
+    /// Get the process path (may be empty if not available)
+    pub fn process_path(&self) -> &str {
+        &self.process_path
+    }
+
+    /// Get the process id
+    pub fn process_id(&self) -> u32 {
+        self.process_pid
     }
 }
 

@@ -14,6 +14,9 @@ use chrono::Local;
 use std::collections::HashMap;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::*;
+use windows::core::PCWSTR;
+use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_SMALLICON};
+use windows::Win32::UI::WindowsAndMessaging::{DrawIconEx, DestroyIcon, DI_NORMAL, HICON};
 
 use crate::modules::{ModuleRegistry, ModuleRenderContext};
 use crate::theme::Theme;
@@ -27,6 +30,8 @@ pub struct Renderer {
     pub module_registry: ModuleRegistry,
     module_bounds: HashMap<String, Rect>,
     icons: Icons,
+    // Cache of small HICONs for executables (keyed by path)
+    icon_cache: std::collections::HashMap<String, windows::Win32::UI::WindowsAndMessaging::HICON>,
     // Double buffering
     back_buffer: HDC,
     back_bitmap: HBITMAP,
@@ -45,6 +50,7 @@ impl Renderer {
             module_registry,
             module_bounds: HashMap::new(),
             icons,
+            icon_cache: std::collections::HashMap::new(),
             back_buffer: HDC::default(),
             back_bitmap: HBITMAP::default(),
             buffer_size: (0, 0),
@@ -202,6 +208,25 @@ impl Renderer {
                     .get("active_window")
                     .map(|m| m.display_text(config.as_ref()))
                     .unwrap_or_else(|| "TopBar".to_string());
+                // Try load a small app icon for the active application
+                let mut app_icon: Option<HICON> = None;
+                // Avoid holding an immutable borrow across calls that need &mut self
+                let mut path_opt: Option<String> = None;
+                {
+                    if let Some(m) = self.module_registry.get("active_window") {
+                        if let Some(awm) = m.as_any().downcast_ref::<crate::modules::active_window::ActiveWindowModule>() {
+                            let p = awm.process_path().to_string();
+                            if !p.is_empty() {
+                                path_opt = Some(p);
+                            }
+                        }
+                    }
+                }
+
+                if let Some(path) = path_opt {
+                    app_icon = self.get_small_icon_for_path(&path);
+                }
+
                 let app_rect = self.draw_module_text(
                     hdc,
                     x,
@@ -210,7 +235,9 @@ impl Renderer {
                     item_padding,
                     theme,
                     true,
+                    app_icon,
                 );
+
                 SelectObject(hdc, font);
                 self.module_bounds
                     .insert("active_app".to_string(), app_rect);
@@ -288,6 +315,7 @@ impl Renderer {
                                 item_padding,
                                 theme,
                                 false,
+                                None,
                             );
                             self.module_bounds.insert(id.clone(), rect);
                         }
@@ -560,6 +588,7 @@ impl Renderer {
                                 item_padding,
                                 theme,
                                 false,
+                                None,
                             );
                             self.module_bounds.insert("media".to_string(), media_rect);
                             x -= item_spacing;
@@ -583,6 +612,7 @@ impl Renderer {
                             item_padding,
                             theme,
                             false,
+                            None,
                         );
                         self.module_bounds
                             .insert("clipboard".to_string(), clip_rect);
@@ -726,6 +756,7 @@ impl Renderer {
                             item_padding,
                             theme,
                             false,
+                            None,
                         );
                         self.module_bounds
                             .insert("keyboard_layout".to_string(), keyboard_rect);
@@ -776,6 +807,7 @@ impl Renderer {
                             item_padding,
                             theme,
                             false,
+                            None,
                         );
                         self.module_bounds
                             .insert("bluetooth".to_string(), bluetooth_rect);
@@ -879,6 +911,7 @@ impl Renderer {
                                 item_padding,
                                 theme,
                                 false,
+                                None,
                             );
                             self.module_bounds
                                 .insert("weather".to_string(), weather_rect);
@@ -994,9 +1027,17 @@ impl Renderer {
         padding: i32,
         theme: &Theme,
         _bold: bool,
+        icon: Option<HICON>,
     ) -> Rect {
         let (text_width, text_height) = self.measure_text(hdc, text);
-        let width = text_width + padding * 2;
+        let mut width = text_width + padding * 2;
+        let icon_size = self.scale(16);
+        let icon_spacing = self.scale(6);
+
+        if icon.is_some() {
+            width += icon_size + icon_spacing;
+        }
+
         let height = text_height + padding + 2; // Balanced height
         let y = (bar_height - height) / 2;
 
@@ -1005,7 +1046,18 @@ impl Renderer {
             SetTextColor(hdc, theme.text_primary.colorref());
             // Center text vertically with slight adjustment for visual balance
             let text_y = (bar_height - text_height) / 2;
-            self.draw_text(hdc, x + padding, text_y, text);
+
+            // Draw icon if provided
+            if let Some(hicon) = icon {
+                // Draw the icon at padding offset
+                let icon_x = x + padding;
+                let icon_y = (bar_height - icon_size) / 2;
+                let _ = DrawIconEx(hdc, icon_x, icon_y, hicon, icon_size, icon_size, 0, HBRUSH::default(), DI_NORMAL);
+                // Draw text after icon + spacing
+                self.draw_text(hdc, x + padding + icon_size + icon_spacing, text_y, text);
+            } else {
+                self.draw_text(hdc, x + padding, text_y, text);
+            }
         }
 
         Rect::new(x, y, width, height)
@@ -1110,6 +1162,38 @@ impl Renderer {
         }
     }
 
+    /// Try to load a small icon handle (HICON) for an executable path and cache it
+    fn get_small_icon_for_path(&mut self, path: &str) -> Option<HICON> {
+        if path.is_empty() {
+            return None;
+        }
+
+        if let Some(icon) = self.icon_cache.get(path) {
+            return Some(*icon);
+        }
+
+        unsafe {
+            let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+            let mut sfi = SHFILEINFOW::default();
+            let flags = SHGFI_ICON | SHGFI_SMALLICON;
+            let res = SHGetFileInfoW(
+                PCWSTR(wide.as_ptr()),
+                windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES(0),
+                Some(&mut sfi as *mut SHFILEINFOW),
+                std::mem::size_of::<SHFILEINFOW>() as u32,
+                flags,
+            );
+
+            if res != 0 && !sfi.hIcon.is_invalid() {
+                let icon = sfi.hIcon;
+                self.icon_cache.insert(path.to_string(), icon);
+                return Some(icon);
+            }
+        }
+
+        None
+    }
+
     /// Scale a value by DPI
     fn scale(&self, value: i32) -> i32 {
         (value as f32 * self.dpi as f32 / 96.0) as i32
@@ -1139,6 +1223,13 @@ impl Drop for Renderer {
             }
             if !self.back_bitmap.is_invalid() {
                 let _ = DeleteObject(self.back_bitmap);
+            }
+
+            // Destroy any cached icon handles
+            for (_path, icon) in self.icon_cache.drain() {
+                if !icon.is_invalid() {
+                    let _ = DestroyIcon(icon);
+                }
             }
         }
     }
