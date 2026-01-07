@@ -1028,6 +1028,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         
         // Network settings
         NET_SHOW_NAME => toggle_config_bool(hwnd, |c| &mut c.modules.network.show_name),
+        NET_SHOW_SPEED => toggle_config_bool(hwnd, |c| &mut c.modules.network.show_speed),
         
         // System info settings
         SYSINFO_CPU => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_cpu),
@@ -1388,6 +1389,7 @@ const VOL_MUTE: u32 = 2202;
 
 // Menu IDs for network  
 const NET_SHOW_NAME: u32 = 2301;
+const NET_SHOW_SPEED: u32 = 2302;
 
 // Menu IDs for battery
 const BAT_SHOW_PCT: u32 = 2401;
@@ -1506,6 +1508,7 @@ fn show_network_menu(hwnd: HWND, x: i32, y: i32) {
             .unwrap_or_default();
         
         append_menu_item(menu, NET_SHOW_NAME, "Show Network Name", config.modules.network.show_name);
+        append_menu_item(menu, NET_SHOW_SPEED, "Show Speed (MB/s)", config.modules.network.show_speed);
         
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);

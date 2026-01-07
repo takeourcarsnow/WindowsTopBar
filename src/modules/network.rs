@@ -28,8 +28,11 @@ pub struct NetworkModule {
     is_connected: bool,
     download_speed: u64,   // bytes per second
     upload_speed: u64,     // bytes per second
+    prev_total_in: u64,    // cumulative octets seen at last sample
+    prev_total_out: u64,   // cumulative octets seen at last sample
     last_update: Instant,
-}
+    last_speed_update: Instant,
+} 
 
 impl NetworkModule {
     pub fn new() -> Self {
@@ -44,7 +47,10 @@ impl NetworkModule {
             is_connected: false,
             download_speed: 0,
             upload_speed: 0,
+            prev_total_in: 0,
+            prev_total_out: 0,
             last_update: Instant::now(),
+            last_speed_update: Instant::now(),
         };
         module.force_update();
         module
@@ -59,10 +65,58 @@ impl NetworkModule {
         if self.network_type == NetworkType::WiFi {
             self.get_wifi_info();
         }
+
+        // Initialize speed sampling to avoid a huge first delta
+        if let Some((total_in, total_out)) = self.sample_total_bytes() {
+            self.prev_total_in = total_in;
+            self.prev_total_out = total_out;
+            self.download_speed = 0;
+            self.upload_speed = 0;
+            self.last_speed_update = Instant::now();
+        }
         
         // Build display text
         self.cached_text = self.build_display_text();
         self.last_update = Instant::now();
+    }
+
+    /// Try to sample total interface bytes (received, transmitted) across adapters
+    fn sample_total_bytes(&self) -> Option<(u64, u64)> {
+        unsafe {
+            use windows::Win32::NetworkManagement::IpHelper::{GetIfTable2, FreeMibTable, MIB_IF_TABLE2};
+
+            let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+            if GetIfTable2(&mut table).0 == 0 && !table.is_null() {
+                let tbl = &*table;
+                let mut total_in: u64 = 0;
+                let mut total_out: u64 = 0;
+                for i in 0..(tbl.NumEntries as usize) {
+                    let row = &*(&tbl.Table as *const _ as *const windows::Win32::NetworkManagement::IpHelper::MIB_IF_ROW2).add(i);
+                    total_in = total_in.saturating_add(row.InOctets as u64);
+                    total_out = total_out.saturating_add(row.OutOctets as u64);
+                }
+                FreeMibTable(table as *mut _);
+                return Some((total_in, total_out));
+            }
+        }
+        None
+    }
+
+    /// Update upload/download speeds by sampling interface counters and computing deltas
+    fn update_speeds(&mut self) {
+        if let Some((total_in, total_out)) = self.sample_total_bytes() {
+            let elapsed = self.last_speed_update.elapsed().as_secs_f64();
+            if elapsed > 0.0 {
+                let delta_in = total_in.saturating_sub(self.prev_total_in);
+                let delta_out = total_out.saturating_sub(self.prev_total_out);
+                self.download_speed = (delta_in as f64 / elapsed) as u64; // bytes/sec
+                self.upload_speed = (delta_out as f64 / elapsed) as u64;
+            }
+
+            self.prev_total_in = total_in;
+            self.prev_total_out = total_out;
+            self.last_speed_update = Instant::now();
+        }
     }
 
     /// Check network status using Windows API
@@ -299,11 +353,26 @@ impl Module for NetworkModule {
             }
         }
 
+        // Show speeds in MB/s if enabled
+        if config.modules.network.show_speed {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            let down_mb = (self.download_speed as f64) / 1_000_000.0;
+            let up_mb = (self.upload_speed as f64) / 1_000_000.0;
+            text.push_str(&format!("{:.1}↓/{:.1}↑MB/s", down_mb, up_mb));
+        }
+
         text
     }
 
     fn update(&mut self, _config: &crate::config::Config) {
-        // Update every 10 seconds
+        // Update speeds every second
+        if self.last_speed_update.elapsed().as_secs() >= 1 {
+            self.update_speeds();
+        }
+
+        // Full refresh every 10 seconds
         if self.last_update.elapsed().as_secs() >= 10 {
             self.force_update();
         }
@@ -345,6 +414,14 @@ impl Module for NetworkModule {
 
         if let Some(ref name) = self.network_name {
             tooltip.push_str(&format!("\nNetwork: {}", name));
+        }
+
+        // Show speeds in tooltip when we have samples
+        if self.download_speed > 0 || self.upload_speed > 0 {
+            // Use values already sampled; convert to MB/s
+            let down_mb = (self.download_speed as f64) / 1_000_000.0;
+            let up_mb = (self.upload_speed as f64) / 1_000_000.0;
+            tooltip.push_str(&format!("\nSpeed: {down:.2} MB/s down / {up:.2} MB/s up", down=down_mb, up=up_mb));
         }
 
         Some(tooltip)

@@ -25,7 +25,7 @@ A native Windows 11 topbar application inspired by macOS and [Droptop Four](http
 | **Clock** | Date and time display (12h/24h format) |
 | **Battery** | Battery percentage and charging status |
 | **Volume** | Audio volume control with scroll support |
-| **Network** | WiFi/Ethernet connection status |
+| **Network** | WiFi/Ethernet connection status and speeds (MB/s) |
 | **System Info** | CPU and memory usage |
 | **Media** | Now playing info and playback controls |
 | **Weather** | Current weather conditions (requires API key) |
@@ -76,6 +76,11 @@ format_24h = false
 show_seconds = false
 show_date = true
 show_day = true
+
+[modules.network]
+show_icon = true
+show_name = false
+show_speed = false
 
 [modules.system_info]
 show_cpu = true
