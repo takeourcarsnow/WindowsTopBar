@@ -23,6 +23,7 @@ const LANG_KOREAN: u16 = 0x12;
 const LANG_ARABIC: u16 = 0x01;
 const LANG_HEBREW: u16 = 0x0D;
 const LANG_POLISH: u16 = 0x15;
+const LANG_LITHUANIAN: u16 = 0x27;
 const LANG_DUTCH: u16 = 0x13;
 const LANG_TURKISH: u16 = 0x1F;
 const LANG_VIETNAMESE: u16 = 0x2A;
@@ -118,6 +119,7 @@ impl KeyboardLayoutModule {
             LANG_NORWEGIAN => ("NO".to_string(), "Norwegian".to_string()),
             LANG_DANISH => ("DA".to_string(), "Danish".to_string()),
             LANG_FINNISH => ("FI".to_string(), "Finnish".to_string()),
+            LANG_LITHUANIAN => ("LT".to_string(), "Lithuanian".to_string()),
             _ => ("??".to_string(), "Unknown".to_string()),
         }
     }
