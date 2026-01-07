@@ -160,7 +160,7 @@ impl GpuModule {
                                 let mut sum = 0.0f64;
                                 for i in 0..item_count as isize {
                                     let item = ptr.offset(i);
-                                    let val = (*item).FmtValue.Anonymous.doubleValue as f64;
+                                    let val = (*item).FmtValue.Anonymous.doubleValue;
                                     sum += val;
                                 }
                                 // Average or clamp to 100

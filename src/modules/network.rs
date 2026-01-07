@@ -96,8 +96,8 @@ impl NetworkModule {
                     let row = &*(&tbl.Table as *const _
                         as *const windows::Win32::NetworkManagement::IpHelper::MIB_IF_ROW2)
                         .add(i);
-                    total_in = total_in.saturating_add(row.InOctets as u64);
-                    total_out = total_out.saturating_add(row.OutOctets as u64);
+                    total_in = total_in.saturating_add(row.InOctets);
+                    total_out = total_out.saturating_add(row.OutOctets);
                 }
                 FreeMibTable(table as *mut _);
                 return Some((total_in, total_out));
@@ -255,7 +255,7 @@ impl NetworkModule {
 
                             // Get signal quality (0-100)
                             self.signal_strength =
-                                attrs.wlanAssociationAttributes.wlanSignalQuality as u32;
+                                attrs.wlanAssociationAttributes.wlanSignalQuality;
 
                             WlanFreeMemory(connection_attrs as *mut std::ffi::c_void);
                         }
