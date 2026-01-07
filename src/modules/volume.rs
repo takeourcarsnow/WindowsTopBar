@@ -193,9 +193,7 @@ impl Module for VolumeModule {
 
     fn on_right_click(&mut self) {
         // Open sound settings
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:sound"])
-            .spawn();
+        crate::utils::open_url("ms-settings:sound");
     }
 
     fn on_scroll(&mut self, delta: i32) {

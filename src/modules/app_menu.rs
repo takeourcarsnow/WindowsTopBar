@@ -138,14 +138,10 @@ impl AppMenuModule {
         match action {
             MenuAction::None => {}
             MenuAction::SystemInfo => {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "ms-settings:about"])
-                    .spawn();
+                crate::utils::open_url("ms-settings:about");
             }
             MenuAction::OpenSettings => {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "ms-settings:"])
-                    .spawn();
+                crate::utils::open_url("ms-settings:");
             }
             MenuAction::Sleep => {
                 let _ = std::process::Command::new("rundll32.exe")
@@ -171,17 +167,17 @@ impl AppMenuModule {
                 let _ = std::process::Command::new("shutdown").args(["/l"]).spawn();
             }
             MenuAction::OpenUrl(url) => {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", url])
-                    .spawn();
+                crate::utils::open_url(url);
             }
             MenuAction::RunCommand(cmd) => {
-                let _ = std::process::Command::new("cmd").args(["/c", cmd]).spawn();
+                use std::os::windows::process::CommandExt;
+                let _ = std::process::Command::new("cmd")
+                    .args(["/c", cmd])
+                    .creation_flags(0x08000000)
+                    .spawn();
             }
             MenuAction::OpenFile(path) => {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", path])
-                    .spawn();
+                crate::utils::open_url(path);
             }
             MenuAction::Custom(_id) => {
                 // Custom action handling would go here

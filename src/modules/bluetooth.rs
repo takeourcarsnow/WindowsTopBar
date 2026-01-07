@@ -167,9 +167,7 @@ impl BluetoothModule {
     /// Toggle Bluetooth
     pub fn toggle(&mut self) {
         // Open Bluetooth settings - actual toggle requires admin privileges
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:bluetooth"])
-            .spawn();
+        crate::utils::open_url("ms-settings:bluetooth");
     }
 
     /// Force an immediate refresh (used by device-change notifications)
@@ -224,9 +222,7 @@ impl Module for BluetoothModule {
 
     fn on_right_click(&mut self) {
         // Open Bluetooth devices
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:connecteddevices"])
-            .spawn();
+        crate::utils::open_url("ms-settings:connecteddevices");
     }
 
     fn tooltip(&self) -> Option<String> {

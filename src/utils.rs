@@ -4,7 +4,7 @@
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
-use windows::core::PCWSTR;
+use windows::core::{w, PCWSTR};
 
 /// Convert a Rust string to a wide string for Windows API
 pub fn to_wide_string(s: &str) -> Vec<u16> {
@@ -332,6 +332,18 @@ pub fn get_screen_size() -> Size {
             width: GetSystemMetrics(SM_CXSCREEN),
             height: GetSystemMetrics(SM_CYSCREEN),
         }
+    }
+}
+
+/// Open a URL or URI using ShellExecuteW (avoids spawning a visible console).
+pub fn open_url(url: &str) {
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let url_wide = to_wide_string(url);
+    unsafe {
+        let _ = ShellExecuteW(None, w!("open"), PCWSTR(url_wide.as_ptr()), None, None, SW_SHOWNORMAL);
     }
 }
 

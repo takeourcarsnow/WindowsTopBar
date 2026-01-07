@@ -603,9 +603,8 @@ impl Module for WeatherModule {
                     self.location.replace(' ', "+")
                 };
                 let url = format!("https://wttr.in/{}", location);
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", &url])
-                    .spawn();
+                crate::utils::open_url(&url);
+
             }
         } else {
             // No data yet - request fetch and open website
@@ -616,9 +615,8 @@ impl Module for WeatherModule {
                 self.location.replace(' ', "+")
             };
             let url = format!("https://wttr.in/{}", location);
-            let _ = std::process::Command::new("cmd")
-                .args(["/c", "start", &url])
-                .spawn();
+            crate::utils::open_url(&url);
+
         }
     }
 

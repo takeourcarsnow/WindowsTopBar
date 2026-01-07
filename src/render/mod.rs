@@ -507,7 +507,7 @@ impl Renderer {
 
                                                 unsafe {
                                                     use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.cpu_normal.colorref());
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
                                                     let old_pen = SelectObject(hdc, pen);
 
                                                     let mut first = true;
@@ -526,7 +526,7 @@ impl Renderer {
                                                     // Small label indicating which graph this is
                                                     let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
                                                     let prev_font = SelectObject(hdc, small_font);
-                                                    let _ = SetTextColor(hdc, theme.cpu_normal.colorref());
+                                                    let _ = SetTextColor(hdc, theme.text_secondary.colorref());
                                                     let label_x = rect.x + item_padding + 2;
                                                     let label_y = rect.y + 2;
                                                     self.draw_text(hdc, label_x, label_y, "CPU");
@@ -700,7 +700,7 @@ impl Renderer {
 
                                                 unsafe {
                                                     use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.accent.colorref());
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
                                                     let old_pen = SelectObject(hdc, pen);
 
                                                     let mut first = true;
@@ -719,7 +719,7 @@ impl Renderer {
                                                     // Small label indicating which graph this is
                                                     let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
                                                     let prev_font = SelectObject(hdc, small_font);
-                                                    let _ = SetTextColor(hdc, theme.accent.colorref());
+                                                    let _ = SetTextColor(hdc, theme.text_secondary.colorref());
                                                     let label_x = rect.x + item_padding + 2;
                                                     let label_y = rect.y + 2;
                                                     self.draw_text(hdc, label_x, label_y, "GPU");
@@ -873,10 +873,10 @@ impl Renderer {
                                             if usage_percent <= 0.0 {
                                                 // nothing else to draw (empty disk)
                                             } else if usage_percent >= 1.0 {
-                                                // Full disk: draw filled circle using accent color for strong contrast
-                                                let fg_brush = CreateSolidBrush(theme.accent.colorref());
+                                                // Full disk: draw filled circle using a light theme color
+                                                let fg_brush = CreateSolidBrush(theme.text_secondary.colorref());
                                                 let old_brush = SelectObject(hdc, fg_brush);
-                                                let pen = CreatePen(PS_SOLID, 0, theme.accent.colorref());
+                                                let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
                                                 let old_pen = SelectObject(hdc, pen);
                                                 let _ = Ellipse(hdc, left, top, right, bottom);
                                                 let _ = SelectObject(hdc, old_pen);
@@ -891,10 +891,10 @@ impl Renderer {
                                                 let x2 = center_x + (end.cos() * radius as f32) as i32;
                                                 let y2 = center_y + (end.sin() * radius as f32) as i32;
 
-                                                // Draw used slice with accent color (better visibility for small slices)
-                                                let fg_brush = CreateSolidBrush(theme.accent.colorref());
+                                                // Draw used slice with a light theme color
+                                                let fg_brush = CreateSolidBrush(theme.text_secondary.colorref());
                                                 let old_brush = SelectObject(hdc, fg_brush);
-                                                let pen = CreatePen(PS_SOLID, 0, theme.accent.colorref());
+                                                let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
                                                 let old_pen = SelectObject(hdc, pen);
                                                 let _ = Pie(hdc, left, top, right, bottom, x1, y1, x2, y2);
                                                 let _ = SelectObject(hdc, old_pen);

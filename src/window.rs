@@ -2137,9 +2137,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
             match cmd_id {
                 id if id >= WEATHER_OPEN && id < WEATHER_OPEN + 10 => {
                     // Clicking a forecast day - open full forecast in browser
-                    let _ = std::process::Command::new("cmd")
-                        .args(["/c", "start", "https://wttr.in/"])
-                        .spawn();
+                    crate::utils::open_url("https://wttr.in/");
                 }
                 WEATHER_REFRESH => {
                     with_renderer(|renderer| {
@@ -2158,9 +2156,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
                 }
                 WEATHER_OPEN => {
                     // Open in browser
-                    let _ = std::process::Command::new("cmd")
-                        .args(["/c", "start", "https://wttr.in/"])
-                        .spawn();
+                    crate::utils::open_url("https://wttr.in/");
                 }
                 _ => {}
             }

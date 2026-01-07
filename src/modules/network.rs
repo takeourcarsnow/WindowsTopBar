@@ -493,9 +493,7 @@ impl Module for NetworkModule {
 
     fn on_click(&mut self) {
         // Open network settings
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:network"])
-            .spawn();
+        crate::utils::open_url("ms-settings:network");
     }
 
     fn tooltip(&self) -> Option<String> {

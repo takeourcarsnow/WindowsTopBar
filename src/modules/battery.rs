@@ -156,9 +156,7 @@ impl Module for BatteryModule {
 
     fn on_click(&mut self) {
         // Open power settings
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:batterysaver"])
-            .spawn();
+        crate::utils::open_url("ms-settings:batterysaver");
     }
 
     fn tooltip(&self) -> Option<String> {
