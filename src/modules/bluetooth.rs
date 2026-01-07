@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use std::time::Instant;
+use log::debug;
 
 use super::Module;
 
@@ -169,6 +170,12 @@ impl BluetoothModule {
         let _ = std::process::Command::new("cmd")
             .args(["/c", "start", "ms-settings:bluetooth"])
             .spawn();
+    }
+
+    /// Force an immediate refresh (used by device-change notifications)
+    pub fn refresh(&mut self) {
+        debug!("BluetoothModule: manual refresh triggered");
+        self.force_update();
     }
 }
 

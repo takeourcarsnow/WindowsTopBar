@@ -765,6 +765,48 @@ unsafe extern "system" fn window_proc(
             LRESULT(0)
         }
 
+        WM_DEVICECHANGE => {
+            // Handle device arrival/removal and trigger immediate Bluetooth refresh
+            match wparam.0 as u32 {
+                DBT_DEVICEARRIVAL | DBT_DEVICEREMOVECOMPLETE | DBT_DEVNODES_CHANGED => {
+                    debug!("Device change event: {}", wparam.0 as u32);
+
+                    // Some device-change events include a pointer to a DEV_BROADCAST_HDR in lparam
+                    // Only refresh Bluetooth module when the change concerns a device interface
+                    let mut should_refresh = true;
+                    if lparam.0 != 0 {
+                        unsafe {
+                            let hdr = &*(lparam.0 as *const DEV_BROADCAST_HDR);
+                            if hdr.dbch_devicetype != DBT_DEVTYP_DEVICEINTERFACE {
+                                // Not a device interface change - skip unless it's a general devnode change
+                                if wparam.0 as u32 != DBT_DEVNODES_CHANGED {
+                                    debug!("Ignoring device change (not device interface): devtype={:?} wparam={}", hdr.dbch_devicetype, wparam.0 as u32);
+                                    should_refresh = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if should_refresh {
+                        // Trigger bluetooth module refresh immediately
+                        with_renderer(|renderer| {
+                            if let Some(module) = renderer.module_registry.get_mut("bluetooth") {
+                                if let Some(bm) = module.as_any_mut().downcast_mut::<crate::modules::bluetooth::BluetoothModule>() {
+                                    bm.refresh();
+                                }
+                            }
+                        });
+
+                        // Request a redraw to update the UI
+                        unsafe { let _ = InvalidateRect(hwnd, None, false); }
+                    }
+                }
+                _ => {}
+            }
+
+            LRESULT(0)
+        }
+
         WM_TOPBAR_UPDATE => {
             let _ = InvalidateRect(hwnd, None, false);
             LRESULT(0)
