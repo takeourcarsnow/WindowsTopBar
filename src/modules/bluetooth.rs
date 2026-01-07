@@ -86,14 +86,53 @@ impl BluetoothModule {
     /// Check for connected Bluetooth devices
     fn check_connected_devices(&mut self) -> usize {
         self.connected_devices.clear();
-        
-        // Using BluetoothEnumerateInstalledServices or checking HID devices
-        // For simplicity, we'll check via registry or device enumeration
-        
-        // This is a simplified check - full implementation would enumerate
-        // paired devices and check their connection status
-        
-        0
+
+        use windows::Win32::Devices::Bluetooth::{
+            BluetoothFindFirstDevice, BluetoothFindNextDevice, BluetoothFindDeviceClose,
+            BLUETOOTH_DEVICE_SEARCH_PARAMS, BLUETOOTH_DEVICE_INFO,
+        };
+        use windows::Win32::Foundation::BOOL;
+
+        unsafe {
+            // Prepare search params to retrieve connected/remembered/authenticated devices
+            let mut search_params: BLUETOOTH_DEVICE_SEARCH_PARAMS = std::mem::zeroed();
+            search_params.dwSize = std::mem::size_of::<BLUETOOTH_DEVICE_SEARCH_PARAMS>() as u32;
+            search_params.fReturnAuthenticated = BOOL(1);
+            search_params.fReturnRemembered = BOOL(1);
+            search_params.fReturnUnknown = BOOL(1);
+            search_params.fReturnConnected = BOOL(1);
+            search_params.fIssueInquiry = BOOL(0);
+            search_params.cTimeoutMultiplier = 0;
+
+            let mut device_info: BLUETOOTH_DEVICE_INFO = std::mem::zeroed();
+            device_info.dwSize = std::mem::size_of::<BLUETOOTH_DEVICE_INFO>() as u32;
+
+            if let Ok(handle) = BluetoothFindFirstDevice(&search_params, &mut device_info) {
+                let mut current = device_info;
+                loop {
+                    // fConnected is a flag indicating current connection state
+                    let connected = current.fConnected.0 != 0;
+
+                    if connected {
+                        // Convert UTF-16 name buffer to Rust String
+                        let name = {
+                            let raw: &[u16] = &current.szName;
+                            let len = raw.iter().position(|&c| c == 0).unwrap_or(raw.len());
+                            String::from_utf16_lossy(&raw[..len])
+                        };
+                        self.connected_devices.push(name);
+                    }
+
+                    if BluetoothFindNextDevice(handle, &mut current).is_err() {
+                        break;
+                    }
+                }
+
+                let _ = BluetoothFindDeviceClose(handle);
+            }
+        }
+
+        self.connected_devices.len()
     }
 
     /// Build the display text

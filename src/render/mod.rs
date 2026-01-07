@@ -375,7 +375,24 @@ impl Renderer {
                                 .get("system_info")
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| "CPU --  MEM --".to_string());
-                            let min_width = self.scale(155);
+
+                            // Compute a sensible minimum width based on which parts are configured
+                            // to be shown (CPU and/or Memory). This avoids leaving a large empty
+                            // area when memory is hidden while still preventing layout jitter.
+                            let sample_text = match (
+                                config.modules.system_info.show_cpu,
+                                config.modules.system_info.show_memory,
+                            ) {
+                                (true, true) => "CPU 100%  MEM 100%",
+                                (true, false) => "CPU 100%",
+                                (false, true) => "MEM 100%",
+                                _ => "CPU --  MEM --",
+                            };
+                            let (sample_w, _) = self.measure_text(hdc, sample_text);
+                            // Add horizontal padding and enforce a small minimum so the area isn't too tight
+                            let mut min_width = sample_w + item_padding * 2;
+                            min_width = min_width.max(self.scale(60));
+
                             x -= min_width;
                             let sysinfo_rect = self.draw_module_text_fixed(
                                 hdc, x, bar_rect.height, &sysinfo_text, item_padding, min_width, theme
