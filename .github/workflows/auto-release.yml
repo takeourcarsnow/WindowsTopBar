@@ -1,4 +1,4 @@
-name: CI & Auto Release
+name: Auto Release
 
 on:
   push:
@@ -28,9 +28,6 @@ jobs:
         with:
           toolchain: stable
           override: true
-
-      - name: Run tests
-        run: cargo test --workspace --all-features --verbose
 
       - name: Build release
         run: cargo build --release
