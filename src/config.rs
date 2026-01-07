@@ -22,6 +22,8 @@ pub struct Config {
     pub behavior: BehaviorConfig,
     /// Hotkey configurations
     pub hotkeys: HotkeyConfig,
+    /// Quick search configuration
+    pub search: SearchConfig,
 }
 
 impl Config {
@@ -668,6 +670,50 @@ impl Default for HotkeyConfig {
             open_menu: Some("Alt+Space".to_string()),
             quick_search: Some("Alt+S".to_string()),
             toggle_theme: Some("Alt+D".to_string()),
+        }
+    }
+}
+
+/// Quick search / indexing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchConfig {
+    /// Enable quick search indexing
+    pub enabled: bool,
+    /// Paths to index (absolute)
+    pub index_paths: Vec<PathBuf>,
+    /// Glob or simple substr patterns to exclude
+    pub exclude_patterns: Vec<String>,
+}
+
+impl Default for SearchConfig {
+    fn default() -> Self {
+        let mut default_paths = Vec::new();
+        if let Some(h) = dirs::home_dir() { default_paths.push(h); }
+        Self {
+            enabled: true,
+            index_paths: default_paths,
+            exclude_patterns: vec![
+                "C:\\Windows".to_string(),
+                "**/node_modules".to_string(),
+                "**/.git".to_string(),
+                "**/target".to_string(),
+                "**/build".to_string(),
+                "**/dist".to_string(),
+                "**/bin".to_string(),
+                "**/obj".to_string(),
+                "**/Debug".to_string(),
+                "**/Release".to_string(),
+                "**/AppData".to_string(),
+                "**/Application Data".to_string(),
+                "**/Local Settings".to_string(),
+                "**/ProgramData".to_string(),
+                "**/temp".to_string(),
+                "**/tmp".to_string(),
+                "**/*.tmp".to_string(),
+                "**/*.temp".to_string(),
+                "**/cache".to_string(),
+                "**/Cache".to_string(),
+            ],
         }
     }
 }

@@ -107,6 +107,22 @@ toggle_theme = "Alt+D"
 | `Alt+S` | Quick search |
 | `Alt+D` | Toggle dark/light theme |
 
+## Quick Search (Prototype)
+
+A fast filename-only quick search was added using `fst` + `walkdir`.
+
+- Builds a compact prefix-search index of filenames (stored as `lowercase_filename\0full_path`).
+- Index is built in a background thread at startup and kept up-to-date via a filesystem watcher (`notify`).
+- Open the search popup with the hotkey (`Alt+S` by default). Type to search filename prefixes; press Enter to open the first match.
+
+Configuration (in `config.toml` under `[search]`):
+
+- `enabled` (bool) — enable/disable indexing (default: true)
+- `index_paths` (array) — paths to index (defaults to your home directory)
+- `exclude_patterns` (array) — simple substrings to ignore (currently used for default excludes)
+
+This is an initial prototype; future improvements include content indexing (via `tantivy`), fuzzy matching, faster persistence, and optional Windows Everything SDK integration for ultra-fast filename-only searches.
+
 ## System Requirements
 
 - Windows 10 (build 1903+) or Windows 11

@@ -5,11 +5,15 @@
 use anyhow::Result;
 use log::{info, warn};
 use std::sync::Arc;
+use parking_lot::RwLock;
 
 use crate::config::Config;
 use crate::tray::TrayIcon;
 use crate::utils::enable_dark_mode_for_app;
 use crate::window::WindowManager;
+use crate::search::SearchIndex;
+
+
 
 /// Main application state
 pub struct Application {
@@ -17,6 +21,8 @@ pub struct Application {
     window_manager: WindowManager,
     tray_icon: Option<TrayIcon>,
     is_running: bool,
+    /// Optional search index built in background
+    search_index: Arc<RwLock<Option<SearchIndex>>>,
 }
 
 impl Application {
@@ -42,11 +48,36 @@ impl Application {
             }
         };
 
+        // Start search index builder in background
+        let search_index: Arc<RwLock<Option<SearchIndex>>> = Arc::new(RwLock::new(None));
+        crate::search::set_global_index(search_index.clone());
+
+        {
+            let si_clone = search_index.clone();
+            let roots: Vec<std::path::PathBuf> = config.search.index_paths.clone();
+            let config_clone = config.clone();
+
+            std::thread::spawn(move || {
+                log::info!("Starting background search indexing...");
+                match SearchIndex::build_with_excludes(&roots, &config_clone.search.exclude_patterns) {
+                    Ok(idx) => {
+                        let len = idx.count();
+                        *si_clone.write() = Some(idx);
+                        log::info!("Search index built with {} entries", len);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to build search index: {}", e);
+                    }
+                }
+            });
+        }
+
         Ok(Self {
             config,
             window_manager,
             tray_icon,
             is_running: false,
+            search_index,
         })
     }
 

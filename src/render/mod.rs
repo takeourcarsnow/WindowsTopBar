@@ -6,8 +6,10 @@
 #![allow(dead_code, unused_unsafe)]
 
 mod icons;
+mod quick_search;
 
 pub use icons::Icons;
+pub use quick_search::show_quick_search;
 
 use anyhow::Result;
 use chrono::Local;
@@ -196,6 +198,22 @@ impl Renderer {
                 );
                 self.module_bounds.insert("app_menu".to_string(), menu_rect);
                 x += menu_rect.width + item_spacing;
+            }
+
+            // Quick search button (visible when enabled in config)
+            if config.search.enabled && dragging.as_deref() != Some("search") {
+                let search_icon = self.icons.get("search");
+                let search_rect = self.draw_module_button(
+                    hdc,
+                    x,
+                    bar_rect.height,
+                    &search_icon,
+                    item_padding,
+                    theme,
+                    false,
+                );
+                self.module_bounds.insert("search".to_string(), search_rect);
+                x += search_rect.width + item_spacing;
             }
 
             // Active application name

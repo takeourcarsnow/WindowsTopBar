@@ -202,6 +202,22 @@ impl Drop for HotkeyManager {
     }
 }
 
+// Global hotkey mapping (id -> action) so WM_HOTKEY handler can dispatch
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex as PLMutex;
+
+static GLOBAL_HOTKEY_MAP: OnceCell<PLMutex<HashMap<i32, HotkeyAction>>> = OnceCell::new();
+
+/// Set the global mapping of hotkey ids to actions (only first set wins)
+pub fn set_global_hotkey_map(map: HashMap<i32, HotkeyAction>) {
+    let _ = GLOBAL_HOTKEY_MAP.set(PLMutex::new(map));
+}
+
+/// Get the global hotkey map (if set)
+pub fn global_hotkey_map() -> Option<&'static PLMutex<HashMap<i32, HotkeyAction>>> {
+    GLOBAL_HOTKEY_MAP.get()
+}
+
 /// Register default hotkeys from config
 pub fn register_default_hotkeys(manager: &mut HotkeyManager, config: &crate::config::HotkeyConfig) {
     if let Some(ref key) = config.toggle_bar {

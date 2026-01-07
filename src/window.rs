@@ -22,6 +22,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::{
     GetDpiForWindow, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
+use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     ReleaseCapture, SetCapture, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
 };
@@ -129,6 +130,8 @@ pub fn get_window_state() -> Option<Arc<RwLock<WindowState>>> {
 pub struct WindowManager {
     hwnd: HWND,
     state: Arc<RwLock<WindowState>>,
+    // Keep hotkeys registered for the lifetime of the window manager
+    hotkey_manager_owned: bool, // we track ownership so we can unregister named hotkeys on drop
 }
 
 impl WindowManager {
@@ -192,9 +195,44 @@ impl WindowManager {
             }
         });
 
+        // Register configured hotkeys and store a simple map for dispatch
+        let mut global_map: std::collections::HashMap<i32, crate::hotkey::HotkeyAction> = std::collections::HashMap::new();
+
+        // Helper to register a single hotkey id for a configured string
+        let mut register_k = |id: i32, key_str: Option<String>, action: crate::hotkey::HotkeyAction| {
+            if let Some(s) = key_str {
+                if let Some(hk) = crate::hotkey::Hotkey::parse(&s, action) {
+                    unsafe {
+                        let res = RegisterHotKey(hwnd, id, HOT_KEY_MODIFIERS(hk.modifiers), hk.key);
+                        if res.is_ok() {
+                            global_map.insert(id, action);
+                        } else {
+                            log::warn!("Failed to register hotkey {} -> {}", s, id);
+                        }
+                    }
+                }
+            }
+        };
+
+        // Fixed ids for core hotkeys (keeps behavior deterministic)
+        const HK_TOGGLE_BAR: i32 = 6000;
+        const HK_OPEN_MENU: i32 = 6001;
+        const HK_QUICK_SEARCH: i32 = 6002;
+        const HK_TOGGLE_THEME: i32 = 6003;
+
+        register_k(HK_TOGGLE_BAR, config.hotkeys.toggle_bar.clone(), crate::hotkey::HotkeyAction::ToggleBar);
+        register_k(HK_OPEN_MENU, config.hotkeys.open_menu.clone(), crate::hotkey::HotkeyAction::OpenMenu);
+        // Only register quick-search hotkey if search is enabled
+        if config.search.enabled {
+            register_k(HK_QUICK_SEARCH, config.hotkeys.quick_search.clone(), crate::hotkey::HotkeyAction::QuickSearch);
+        }
+        register_k(HK_TOGGLE_THEME, config.hotkeys.toggle_theme.clone(), crate::hotkey::HotkeyAction::ToggleTheme);
+
+        crate::hotkey::set_global_hotkey_map(global_map);
+
         info!("Window created successfully at {:?}", bar_rect);
 
-        Ok(Self { hwnd, state })
+        Ok(Self { hwnd, state, hotkey_manager_owned: true })
     }
 
     /// Register the window class
@@ -552,6 +590,29 @@ unsafe extern "system" fn window_proc(
                 }
                 _ => {}
             }
+            LRESULT(0)
+        }
+
+        WM_HOTKEY => {
+            // Global hotkeys (registered during window creation)
+            if let Some(map) = crate::hotkey::global_hotkey_map() {
+                let guard = map.lock();
+                let id = wparam.0 as i32;
+                if let Some(action) = guard.get(&id) {
+                    match action {
+                        crate::hotkey::HotkeyAction::QuickSearch => {
+                            // Show quick search popup centered under the bar
+                            let _ = crate::render::show_quick_search(hwnd);
+                        }
+                        crate::hotkey::HotkeyAction::ToggleBar => {
+                            // Toggle visibility via WindowManager post message
+                            unsafe { let _ = PostMessageW(hwnd, WM_USER + 99, WPARAM(0), LPARAM(0)); }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
             LRESULT(0)
         }
 
@@ -968,6 +1029,7 @@ const GPU_SHOW_GRAPH: u32 = 2604;
 const MENU_SETTINGS: u32 = 1200;
 const MENU_RELOAD: u32 = 1201;
 const MENU_RESET: u32 = 1202;
+const MENU_TOGGLE_SEARCH: u32 = 1210;
 const MENU_EXIT: u32 = 1999;
 
 /// Show the context menu
@@ -1071,6 +1133,7 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
 
         // Settings and exit
+        append_menu_item(menu, MENU_TOGGLE_SEARCH, "Enable Quick Search", config.search.enabled);
         append_menu_item(menu, MENU_SETTINGS, "Open Config File", false);
         append_menu_item(menu, MENU_RELOAD, "Reload Config", false);
         append_menu_item(menu, MENU_RESET, "Reset to Defaults", false);
@@ -1260,6 +1323,73 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                     warn!("Failed to save config: {}", e);
                 }
                 state.write().config = Arc::new(new_config);
+                unsafe {
+                    let _ = InvalidateRect(hwnd, None, true);
+                }
+            }
+        }
+
+        MENU_TOGGLE_SEARCH => {
+            if let Some(state) = get_window_state() {
+                let config = state.read().config.clone();
+                let mut new_config = (*config).clone();
+                // Toggle search enabled
+                new_config.search.enabled = !new_config.search.enabled;
+
+                // Save and apply config
+                if let Err(e) = new_config.save() {
+                    warn!("Failed to save config: {}", e);
+                }
+
+                // Update in-memory config
+                state.write().config = Arc::new(new_config.clone());
+
+                // Hotkey id we use for quick search
+                const HK_QUICK_SEARCH: i32 = 6002;
+
+                // If now enabled, kick off a background build and watcher; also register hotkey
+                if new_config.search.enabled {
+                    // Register hotkey for quick search if configured
+                    if let Some(ref s) = new_config.hotkeys.quick_search {
+                        if let Some(hk) = crate::hotkey::Hotkey::parse(s, crate::hotkey::HotkeyAction::QuickSearch) {
+                            unsafe {
+                                let _ = RegisterHotKey(hwnd, HK_QUICK_SEARCH, HOT_KEY_MODIFIERS(hk.modifiers), hk.key);
+                            }
+                            if let Some(map) = crate::hotkey::global_hotkey_map() {
+                                let mut guard = map.lock();
+                                guard.insert(HK_QUICK_SEARCH, crate::hotkey::HotkeyAction::QuickSearch);
+                            }
+                        }
+                    }
+
+                    // Build in background and set global index
+                    let paths = new_config.search.index_paths.clone();
+                    std::thread::spawn(move || {
+                        match crate::search::SearchIndex::build(&paths) {
+                            Ok(idx) => {
+                                if let Some(g) = crate::search::global_index() {
+                                    *g.write() = Some(idx);
+                                }
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to build search index after enabling: {}", e);
+                            }
+                        }
+                    });
+                } else {
+                    // Disable: clear the in-memory index and unregister the hotkey
+                    if let Some(g) = crate::search::global_index() {
+                        *g.write() = None;
+                    }
+                    unsafe {
+                        let _ = UnregisterHotKey(hwnd, HK_QUICK_SEARCH);
+                    }
+                    if let Some(map) = crate::hotkey::global_hotkey_map() {
+                        let mut guard = map.lock();
+                        guard.remove(&HK_QUICK_SEARCH);
+                    }
+                }
+
                 unsafe {
                     let _ = InvalidateRect(hwnd, None, true);
                 }
@@ -1654,6 +1784,10 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "clipboard" => show_clipboard_menu(hwnd, pt.x, pt.y),
         "app_menu" => show_app_menu(hwnd, pt.x, pt.y),
         "weather" => show_weather_menu(hwnd, pt.x, pt.y),
+        "search" => {
+            // Open quick search popup
+            let _ = crate::render::show_quick_search(hwnd);
+        }
         _ => {
             debug!("Unhandled module click: {}", module_id);
         }
