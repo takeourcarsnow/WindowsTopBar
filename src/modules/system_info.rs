@@ -2,10 +2,10 @@
 
 #![allow(dead_code)]
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::collections::VecDeque;
-use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind, RefreshKind};
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 use super::Module;
 use crate::utils::format_bytes;
@@ -34,7 +34,7 @@ impl SystemInfoModule {
         let system = System::new_with_specifics(
             RefreshKind::new()
                 .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                .with_memory(MemoryRefreshKind::everything())
+                .with_memory(MemoryRefreshKind::everything()),
         );
 
         let mut module = Self {
@@ -67,14 +67,16 @@ impl SystemInfoModule {
             // Calculate CPU usage (average across all cores)
             let cpus = sys.cpus();
             if !cpus.is_empty() {
-                self.cpu_usage = cpus.iter().map(|c| c.cpu_usage()).sum::<f32>() / cpus.len() as f32;
+                self.cpu_usage =
+                    cpus.iter().map(|c| c.cpu_usage()).sum::<f32>() / cpus.len() as f32;
             }
 
             // Calculate memory usage
             self.memory_total = sys.total_memory();
             self.memory_used = sys.used_memory();
             if self.memory_total > 0 {
-                self.memory_usage = (self.memory_used as f64 / self.memory_total as f64 * 100.0) as f32;
+                self.memory_usage =
+                    (self.memory_used as f64 / self.memory_total as f64 * 100.0) as f32;
             }
         }
 

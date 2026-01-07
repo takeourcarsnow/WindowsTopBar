@@ -43,7 +43,7 @@ pub fn format_bytes(bytes: u64) -> String {
 pub fn format_duration(seconds: u64) -> String {
     let hours = seconds / 3600;
     let minutes = (seconds % 3600) / 60;
-    
+
     if hours > 0 {
         format!("{}:{:02}", hours, minutes)
     } else {
@@ -83,7 +83,12 @@ pub struct Rect {
 
 impl Rect {
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn right(&self) -> i32 {
@@ -251,7 +256,7 @@ impl Animator {
         }
 
         self.elapsed_ms += delta_ms;
-        
+
         if self.elapsed_ms >= self.duration_ms {
             self.current_value = self.end_value;
             self.is_running = false;
@@ -291,10 +296,10 @@ pub fn truncate_string(s: &str, max_chars: usize) -> String {
 
 /// Get the primary monitor work area
 pub fn get_primary_work_area() -> Option<Rect> {
+    use windows::Win32::Foundation::RECT;
     use windows::Win32::UI::WindowsAndMessaging::{
         SystemParametersInfoW, SPI_GETWORKAREA, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
     };
-    use windows::Win32::Foundation::RECT;
 
     unsafe {
         let mut rect = RECT::default();
@@ -345,7 +350,7 @@ pub fn is_elevated() -> bool {
 
         let mut elevation = TOKEN_ELEVATION::default();
         let mut size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
-        
+
         let result = GetTokenInformation(
             token,
             TokenElevation,
@@ -367,36 +372,36 @@ pub fn is_elevated() -> bool {
 /// Enable dark mode for Windows context menus
 /// This uses undocumented Windows APIs to enable dark mode for popup menus
 pub fn enable_dark_mode_for_app(enable: bool) {
-    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
     use windows::core::PCSTR;
-    
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+
     unsafe {
         // Load uxtheme.dll
         let uxtheme: Vec<u16> = "uxtheme.dll\0".encode_utf16().collect();
         let module = LoadLibraryW(windows::core::PCWSTR::from_raw(uxtheme.as_ptr()));
-        
+
         if let Ok(module) = module {
             // SetPreferredAppMode (ordinal 135) - Windows 10 1903+
             // 0 = Default, 1 = AllowDark, 2 = ForceDark, 3 = ForceLight
             type SetPreferredAppModeFn = unsafe extern "system" fn(i32) -> i32;
-            
+
             if let Some(func) = GetProcAddress(module, PCSTR::from_raw(135usize as *const u8)) {
                 let set_preferred_app_mode: SetPreferredAppModeFn = std::mem::transmute(func);
-                let mode = if enable { 2 } else { 0 };  // ForceDark or Default
+                let mode = if enable { 2 } else { 0 }; // ForceDark or Default
                 set_preferred_app_mode(mode);
             }
-            
+
             // FlushMenuThemes (ordinal 136) - Force refresh of menu themes
             type FlushMenuThemesFn = unsafe extern "system" fn();
-            
+
             if let Some(func) = GetProcAddress(module, PCSTR::from_raw(136usize as *const u8)) {
                 let flush_menu_themes: FlushMenuThemesFn = std::mem::transmute(func);
                 flush_menu_themes();
             }
-            
+
             // AllowDarkModeForApp (ordinal 132) - Older method for pre-1903
             type AllowDarkModeForAppFn = unsafe extern "system" fn(i32) -> i32;
-            
+
             if let Some(func) = GetProcAddress(module, PCSTR::from_raw(132usize as *const u8)) {
                 let allow_dark_mode: AllowDarkModeForAppFn = std::mem::transmute(func);
                 allow_dark_mode(if enable { 1 } else { 0 });

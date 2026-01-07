@@ -23,7 +23,7 @@ impl ClockModule {
     /// Format the current time
     fn format_time(&self, config: &crate::config::Config) -> String {
         let now = Local::now();
-        
+
         let time_str = if config.modules.clock.format_24h {
             if config.modules.clock.show_seconds {
                 now.format("%H:%M:%S").to_string()

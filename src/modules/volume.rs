@@ -2,9 +2,7 @@
 
 use std::time::Instant;
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
-use windows::Win32::Media::Audio::{
-    IMMDeviceEnumerator, MMDeviceEnumerator, eRender, eConsole,
-};
+use windows::Win32::Media::Audio::{eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
 };
@@ -16,7 +14,7 @@ pub struct VolumeModule {
     scroll_to_change: bool,
     scroll_step: u32,
     cached_text: String,
-    volume_level: u32,  // 0-100
+    volume_level: u32, // 0-100
     is_muted: bool,
     last_update: Instant,
     com_initialized: bool,
@@ -52,7 +50,7 @@ impl VolumeModule {
     fn force_update(&mut self, config: &crate::config::Config) {
         // Get volume from Windows
         self.get_system_volume();
-        
+
         // Build display text
         self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
@@ -61,14 +59,13 @@ impl VolumeModule {
     /// Get audio endpoint volume interface
     fn get_audio_endpoint(&self) -> Option<IAudioEndpointVolume> {
         unsafe {
-            let enumerator: IMMDeviceEnumerator = 
+            let enumerator: IMMDeviceEnumerator =
                 CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
-            
+
             let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
-            
-            let endpoint_volume: IAudioEndpointVolume = 
-                device.Activate(CLSCTX_ALL, None).ok()?;
-            
+
+            let endpoint_volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).ok()?;
+
             Some(endpoint_volume)
         }
     }
@@ -81,7 +78,7 @@ impl VolumeModule {
                 if let Ok(level) = endpoint.GetMasterVolumeLevelScalar() {
                     self.volume_level = (level as f64 * 100.0).round() as u32;
                 }
-                
+
                 // Get mute state
                 if let Ok(muted) = endpoint.GetMute() {
                     self.is_muted = muted.0 != 0;
@@ -114,7 +111,7 @@ impl VolumeModule {
     /// Build the display text
     fn build_display_text(&self, config: &crate::config::Config) -> String {
         let icon = self.get_volume_icon();
-        
+
         if config.modules.volume.show_percentage {
             format!("{} {}%", icon, self.volume_level)
         } else {
@@ -179,7 +176,7 @@ impl Module for VolumeModule {
 
     fn display_text(&self, config: &crate::config::Config) -> String {
         let icon = self.get_volume_icon();
-        
+
         if config.modules.volume.show_percentage {
             format!("{} {}%", icon, self.volume_level)
         } else {
@@ -208,14 +205,21 @@ impl Module for VolumeModule {
 
     fn on_scroll(&mut self, delta: i32) {
         if self.scroll_to_change {
-            let step = if delta > 0 { self.scroll_step as i32 } else { -(self.scroll_step as i32) };
+            let step = if delta > 0 {
+                self.scroll_step as i32
+            } else {
+                -(self.scroll_step as i32)
+            };
             self.change_volume(step);
         }
     }
 
     fn tooltip(&self) -> Option<String> {
         let status = if self.is_muted { " (Muted)" } else { "" };
-        Some(format!("Volume: {}%{}\nScroll to adjust, click to mute", self.volume_level, status))
+        Some(format!(
+            "Volume: {}%{}\nScroll to adjust, click to mute",
+            self.volume_level, status
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

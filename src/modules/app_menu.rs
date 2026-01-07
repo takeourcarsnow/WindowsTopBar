@@ -89,9 +89,9 @@ pub struct AppMenuModule {
 impl AppMenuModule {
     pub fn new() -> Self {
         let menu_items = Self::default_menu_items();
-        
+
         Self {
-            cached_text: "☰".to_string(),  // Hamburger menu icon
+            cached_text: "☰".to_string(), // Hamburger menu icon
             menu_items,
             is_open: false,
         }
@@ -100,35 +100,36 @@ impl AppMenuModule {
     /// Create default menu items
     fn default_menu_items() -> Vec<MenuItem> {
         vec![
-            MenuItem::new("About This PC", MenuAction::SystemInfo)
-                .with_icon("ℹ️"),
+            MenuItem::new("About This PC", MenuAction::SystemInfo).with_icon("ℹ️"),
             MenuItem::separator(),
-            MenuItem::new("System Preferences...", MenuAction::OpenSettings)
-                .with_icon("⚙️"),
-            MenuItem::new("App Store...", MenuAction::OpenUrl("ms-windows-store:".to_string()))
-                .with_icon("🏪"),
+            MenuItem::new("System Preferences...", MenuAction::OpenSettings).with_icon("⚙️"),
+            MenuItem::new(
+                "App Store...",
+                MenuAction::OpenUrl("ms-windows-store:".to_string()),
+            )
+            .with_icon("🏪"),
             MenuItem::separator(),
-            MenuItem::new("Recent Items", MenuAction::None)
-                .with_submenu(vec![
-                    MenuItem::new("No recent items", MenuAction::None).disabled(),
-                ]),
+            MenuItem::new("Recent Items", MenuAction::None).with_submenu(vec![MenuItem::new(
+                "No recent items",
+                MenuAction::None,
+            )
+            .disabled()]),
             MenuItem::separator(),
-            MenuItem::new("Force Quit...", MenuAction::RunCommand("taskmgr".to_string()))
-                .with_icon("⚠️")
-                .with_shortcut("Ctrl+Alt+Del"),
+            MenuItem::new(
+                "Force Quit...",
+                MenuAction::RunCommand("taskmgr".to_string()),
+            )
+            .with_icon("⚠️")
+            .with_shortcut("Ctrl+Alt+Del"),
             MenuItem::separator(),
-            MenuItem::new("Sleep", MenuAction::Sleep)
-                .with_icon("😴"),
-            MenuItem::new("Restart...", MenuAction::Restart)
-                .with_icon("🔄"),
-            MenuItem::new("Shut Down...", MenuAction::Shutdown)
-                .with_icon("⏻"),
+            MenuItem::new("Sleep", MenuAction::Sleep).with_icon("😴"),
+            MenuItem::new("Restart...", MenuAction::Restart).with_icon("🔄"),
+            MenuItem::new("Shut Down...", MenuAction::Shutdown).with_icon("⏻"),
             MenuItem::separator(),
             MenuItem::new("Lock Screen", MenuAction::Lock)
                 .with_icon("🔒")
                 .with_shortcut("Win+L"),
-            MenuItem::new("Sign Out...", MenuAction::SignOut)
-                .with_icon("🚪"),
+            MenuItem::new("Sign Out...", MenuAction::SignOut).with_icon("🚪"),
         ]
     }
 
@@ -167,9 +168,7 @@ impl AppMenuModule {
                     .spawn();
             }
             MenuAction::SignOut => {
-                let _ = std::process::Command::new("shutdown")
-                    .args(["/l"])
-                    .spawn();
+                let _ = std::process::Command::new("shutdown").args(["/l"]).spawn();
             }
             MenuAction::OpenUrl(url) => {
                 let _ = std::process::Command::new("cmd")
@@ -177,9 +176,7 @@ impl AppMenuModule {
                     .spawn();
             }
             MenuAction::RunCommand(cmd) => {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", cmd])
-                    .spawn();
+                let _ = std::process::Command::new("cmd").args(["/c", cmd]).spawn();
             }
             MenuAction::OpenFile(path) => {
                 let _ = std::process::Command::new("cmd")

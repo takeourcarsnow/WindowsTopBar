@@ -78,14 +78,14 @@ impl KeyboardLayoutModule {
             } else {
                 windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(hwnd, None)
             };
-            
+
             let layout = GetKeyboardLayout(thread_id);
             self.current_layout = layout.0 as isize;
-            
+
             // Extract language ID (low word of HKL)
             let lang_id = (self.current_layout as usize & 0xFFFF) as u16;
             let primary_lang = lang_id & 0x3FF;
-            
+
             // Map language ID to code and name
             let (code, name) = self.get_language_info(primary_lang);
             self.language_code = code;
@@ -138,12 +138,12 @@ impl KeyboardLayoutModule {
 
     /// Switch to next keyboard layout
     pub fn switch_layout(&mut self) {
-        use windows::Win32::UI::WindowsAndMessaging::{
-            PostMessageW, GetForegroundWindow, WM_INPUTLANGCHANGEREQUEST,
-        };
-        use windows::Win32::Foundation::WPARAM;
         use windows::Win32::Foundation::LPARAM;
-        
+        use windows::Win32::Foundation::WPARAM;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, PostMessageW, WM_INPUTLANGCHANGEREQUEST,
+        };
+
         unsafe {
             let hwnd = GetForegroundWindow();
             if !hwnd.0.is_null() {
@@ -152,7 +152,7 @@ impl KeyboardLayoutModule {
                 let _ = PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, WPARAM(0), LPARAM(1));
             }
         }
-        
+
         // Update after a short delay
         std::thread::sleep(std::time::Duration::from_millis(50));
         self.force_update();

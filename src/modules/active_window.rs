@@ -3,16 +3,15 @@
 #![allow(dead_code)]
 
 use std::time::Instant;
-use windows::Win32::Foundation::HWND;
 use windows::core::PWSTR;
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetWindowTextW, GetWindowTextLengthW,
-    GetWindowThreadProcessId,
-};
-use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
-};
+use windows::Win32::Foundation::HWND;
 use windows::Win32::System::ProcessStatus::GetModuleBaseNameW;
+use windows::Win32::System::Threading::{
+    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+};
 
 use super::Module;
 use crate::utils::truncate_string;
@@ -44,25 +43,26 @@ impl ActiveWindowModule {
         let (title, process) = self.get_active_window_info();
         self.window_title = title;
         self.process_name = process;
-        
+
         // Build display text - show process name like macOS
         self.cached_text = if self.process_name.is_empty() {
             "Desktop".to_string()
         } else {
             // Remove .exe extension and capitalize
-            let name = self.process_name
+            let name = self
+                .process_name
                 .trim_end_matches(".exe")
                 .trim_end_matches(".EXE");
-            
+
             // Capitalize first letter
             let mut chars: Vec<char> = name.chars().collect();
             if let Some(first) = chars.first_mut() {
                 *first = first.to_uppercase().next().unwrap_or(*first);
             }
-            
+
             chars.into_iter().collect()
         };
-        
+
         self.last_update = Instant::now();
     }
 
@@ -94,7 +94,7 @@ impl ActiveWindowModule {
 
             let mut buffer: Vec<u16> = vec![0; (length + 1) as usize];
             let copied = GetWindowTextW(hwnd, &mut buffer);
-            
+
             if copied > 0 {
                 String::from_utf16_lossy(&buffer[..copied as usize])
             } else {
@@ -124,7 +124,7 @@ impl ActiveWindowModule {
                     PWSTR(buffer.as_mut_ptr()),
                     &mut size,
                 );
-                
+
                 let _ = windows::Win32::Foundation::CloseHandle(handle);
 
                 if result.is_ok() && size > 0 {
@@ -141,7 +141,7 @@ impl ActiveWindowModule {
                 // Fallback to GetModuleBaseNameW
                 let mut buffer: Vec<u16> = vec![0; 260];
                 let length = GetModuleBaseNameW(handle, None, &mut buffer);
-                
+
                 if length > 0 {
                     return String::from_utf16_lossy(&buffer[..length as usize]);
                 }

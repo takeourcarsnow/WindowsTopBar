@@ -1,5 +1,5 @@
 //! Render module - graphics and drawing
-//! 
+//!
 //! Contains all rendering-related code including the main renderer,
 //! and icon handling.
 
@@ -10,14 +10,14 @@ mod icons;
 pub use icons::Icons;
 
 use anyhow::Result;
+use chrono::Local;
 use std::collections::HashMap;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::*;
-use chrono::Local;
 
-use crate::theme::{Theme};
-use crate::utils::Rect;
 use crate::modules::{ModuleRegistry, ModuleRenderContext};
+use crate::theme::Theme;
+use crate::utils::Rect;
 use crate::window::get_window_state;
 
 /// Main renderer for the topbar
@@ -80,22 +80,25 @@ impl Renderer {
     /// Main paint function
     pub fn paint(&mut self, hdc: HDC, bar_rect: &Rect, theme: &Theme) {
         self.ensure_back_buffer(hdc, bar_rect.width, bar_rect.height);
-        
+
         // Clear module bounds
         self.module_bounds.clear();
 
         // Draw to back buffer
         self.draw_background(self.back_buffer, bar_rect, theme);
         self.draw_modules(self.back_buffer, bar_rect, theme);
-        
+
         // Copy to screen
         unsafe {
             let _ = BitBlt(
                 hdc,
-                0, 0,
-                bar_rect.width, bar_rect.height,
+                0,
+                0,
+                bar_rect.width,
+                bar_rect.height,
                 self.back_buffer,
-                0, 0,
+                0,
+                0,
                 SRCCOPY,
             );
         }
@@ -153,10 +156,10 @@ impl Renderer {
 
         // First update all modules to get fresh data
         self.module_registry.update_all(&config);
-        
-        let padding = self.scale(8);  // Edge padding
-        let item_spacing = self.scale(4);  // Minimal spacing between items
-        let item_padding = self.scale(8);  // Internal item padding
+
+        let padding = self.scale(8); // Edge padding
+        let item_spacing = self.scale(4); // Minimal spacing between items
+        let item_padding = self.scale(8); // Internal item padding
 
         // Create font - use optimized modern fonts for macOS-like aesthetics
         // Segoe UI Variable offers better clarity, while Inter is a great fallback
@@ -171,27 +174,45 @@ impl Renderer {
             let mut x = padding;
 
             // App menu button (always show)
-            if left_modules.contains(&"app_menu".to_string()) && dragging.as_deref() != Some("app_menu") {
+            if left_modules.contains(&"app_menu".to_string())
+                && dragging.as_deref() != Some("app_menu")
+            {
                 let menu_icon = self.icons.get("menu");
                 let menu_rect = self.draw_module_button(
-                    hdc, x, bar_rect.height, &menu_icon, item_padding, theme, false
+                    hdc,
+                    x,
+                    bar_rect.height,
+                    &menu_icon,
+                    item_padding,
+                    theme,
+                    false,
                 );
                 self.module_bounds.insert("app_menu".to_string(), menu_rect);
                 x += menu_rect.width + item_spacing;
             }
 
             // Active application name
-            if left_modules.contains(&"active_app".to_string()) && dragging.as_deref() != Some("active_app") {
+            if left_modules.contains(&"active_app".to_string())
+                && dragging.as_deref() != Some("active_app")
+            {
                 SelectObject(hdc, bold_font);
-                let app_name = self.module_registry
+                let app_name = self
+                    .module_registry
                     .get("active_window")
                     .map(|m| m.display_text(&*config))
                     .unwrap_or_else(|| "TopBar".to_string());
                 let app_rect = self.draw_module_text(
-                    hdc, x, bar_rect.height, &app_name, item_padding, theme, true
+                    hdc,
+                    x,
+                    bar_rect.height,
+                    &app_name,
+                    item_padding,
+                    theme,
+                    true,
                 );
                 SelectObject(hdc, font);
-                self.module_bounds.insert("active_app".to_string(), app_rect);
+                self.module_bounds
+                    .insert("active_app".to_string(), app_rect);
             }
 
             // === CENTER SECTION ===
@@ -206,7 +227,9 @@ impl Renderer {
                 let mut total_width = 0;
                 let mut center_widths: Vec<(String, i32)> = Vec::new();
                 for id in center_list.iter() {
-                    if dragging.as_deref() == Some(id.as_str()) { continue; }
+                    if dragging.as_deref() == Some(id.as_str()) {
+                        continue;
+                    }
                     let w = match id.as_str() {
                         "clock" => {
                             // Use sample text to get fixed width and prevent layout shifting
@@ -216,7 +239,8 @@ impl Renderer {
                         }
                         _ => {
                             // Default measurement for text modules
-                            let text = self.module_registry
+                            let text = self
+                                .module_registry
                                 .get(id.as_str())
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_default();
@@ -234,18 +258,36 @@ impl Renderer {
                     for (id, w) in center_widths.iter() {
                         // Draw each center item
                         if id == "clock" {
-                            let clock_text = self.module_registry
+                            let clock_text = self
+                                .module_registry
                                 .get("clock")
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
-                            let rect = self.draw_module_text_fixed(hdc, cx, bar_rect.height, &clock_text, item_padding, *w, theme);
+                            let rect = self.draw_module_text_fixed(
+                                hdc,
+                                cx,
+                                bar_rect.height,
+                                &clock_text,
+                                item_padding,
+                                *w,
+                                theme,
+                            );
                             self.module_bounds.insert("clock".to_string(), rect);
                         } else {
-                            let text = self.module_registry
+                            let text = self
+                                .module_registry
                                 .get(id.as_str())
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_default();
-                            let rect = self.draw_module_text(hdc, cx, bar_rect.height, &text, item_padding, theme, false);
+                            let rect = self.draw_module_text(
+                                hdc,
+                                cx,
+                                bar_rect.height,
+                                &text,
+                                item_padding,
+                                theme,
+                                false,
+                            );
                             self.module_bounds.insert(id.clone(), rect);
                         }
                         cx += w + item_spacing;
@@ -257,11 +299,14 @@ impl Renderer {
             x = bar_rect.width - padding;
 
             for id in right_modules.iter().rev() {
-                if dragging.as_deref() == Some(id.as_str()) { continue; }
+                if dragging.as_deref() == Some(id.as_str()) {
+                    continue;
+                }
 
                 match id.as_str() {
                     "clock" => {
-                        let clock_text = self.module_registry
+                        let clock_text = self
+                            .module_registry
                             .get("clock")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
@@ -271,14 +316,21 @@ impl Renderer {
                         let min_width = sample_width + item_padding * 2;
                         x -= min_width;
                         let clock_rect = self.draw_module_text_fixed(
-                            hdc, x, bar_rect.height, &clock_text, item_padding, min_width, theme
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &clock_text,
+                            item_padding,
+                            min_width,
+                            theme,
                         );
                         self.module_bounds.insert("clock".to_string(), clock_rect);
                         x -= item_spacing;
                     }
 
                     "battery" => {
-                        let battery_text = self.module_registry
+                        let battery_text = self
+                            .module_registry
                             .get("battery")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| {
@@ -289,29 +341,44 @@ impl Renderer {
                             let min_width = self.scale(70);
                             x -= min_width;
                             let battery_rect = self.draw_module_text_fixed(
-                                hdc, x, bar_rect.height, &battery_text, item_padding, min_width, theme
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &battery_text,
+                                item_padding,
+                                min_width,
+                                theme,
                             );
-                            self.module_bounds.insert("battery".to_string(), battery_rect);
+                            self.module_bounds
+                                .insert("battery".to_string(), battery_rect);
                             x -= item_spacing;
                         }
                     }
 
                     "volume" => {
-                        let volume_text = self.module_registry
+                        let volume_text = self
+                            .module_registry
                             .get("volume")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("volume_high"));
                         let min_width = self.scale(68);
                         x -= min_width;
                         let volume_rect = self.draw_module_text_fixed(
-                            hdc, x, bar_rect.height, &volume_text, item_padding, min_width, theme
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &volume_text,
+                            item_padding,
+                            min_width,
+                            theme,
                         );
                         self.module_bounds.insert("volume".to_string(), volume_rect);
                         x -= item_spacing;
                     }
 
                     "network" => {
-                        let network_text = self.module_registry
+                        let network_text = self
+                            .module_registry
                             .get("network")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("wifi"));
@@ -323,9 +390,16 @@ impl Renderer {
 
                         x -= min_width;
                         let network_rect = self.draw_module_text_fixed(
-                            hdc, x, bar_rect.height, &network_text, item_padding, min_width, theme
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &network_text,
+                            item_padding,
+                            min_width,
+                            theme,
                         );
-                        self.module_bounds.insert("network".to_string(), network_rect);
+                        self.module_bounds
+                            .insert("network".to_string(), network_rect);
                         x -= item_spacing;
                     }
 
@@ -336,10 +410,21 @@ impl Renderer {
                             let graph_height = bar_rect.height - self.scale(8);
                             x -= graph_width + item_padding * 2;
 
-                            let rect = Rect::new(x, (bar_rect.height - graph_height) / 2, graph_width + item_padding * 2, graph_height);
+                            let rect = Rect::new(
+                                x,
+                                (bar_rect.height - graph_height) / 2,
+                                graph_width + item_padding * 2,
+                                graph_height,
+                            );
                             unsafe {
-                                let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
-                                let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
+                                let bg_brush =
+                                    CreateSolidBrush(theme.background_secondary.to_colorref());
+                                let r = windows::Win32::Foundation::RECT {
+                                    left: rect.x,
+                                    top: rect.y,
+                                    right: rect.x + rect.width,
+                                    bottom: rect.y + rect.height,
+                                };
                                 FillRect(hdc, &r, bg_brush);
                                 let _ = DeleteObject(bg_brush);
 
@@ -352,18 +437,29 @@ impl Renderer {
                                             let step = inner_w as f32 / (len.max(1) as f32);
                                             let mut x_pos = rect.x + item_padding;
 
-                                            let mut points: Vec<(i32,i32)> = Vec::new();
+                                            let mut points: Vec<(i32, i32)> = Vec::new();
                                             for v in values.iter() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let y = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                let y = rect.y
+                                                    + 2
+                                                    + ((1.0 - clamped) * inner_h as f32) as i32;
                                                 points.push((x_pos, y));
                                                 x_pos += step as i32;
                                             }
 
-                                            let pen = CreatePen(PS_SOLID, 2, theme.cpu_normal.to_colorref());
+                                            let pen = CreatePen(
+                                                PS_SOLID,
+                                                2,
+                                                theme.cpu_normal.to_colorref(),
+                                            );
                                             let old_pen = SelectObject(hdc, pen);
                                             if let Some((sx, sy)) = points.first() {
-                                                let _ = MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                                let _ = MoveToEx(
+                                                    hdc,
+                                                    *sx,
+                                                    *sy,
+                                                    Some(std::ptr::null_mut()),
+                                                );
                                                 for (px, py) in points.iter().skip(1) {
                                                     let _ = LineTo(hdc, *px, *py);
                                                 }
@@ -378,7 +474,8 @@ impl Renderer {
                             self.module_bounds.insert("system_info".to_string(), rect);
                             x -= item_spacing;
                         } else {
-                            let sysinfo_text = self.module_registry
+                            let sysinfo_text = self
+                                .module_registry
                                 .get("system_info")
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| "CPU --  RAM --".to_string());
@@ -402,15 +499,23 @@ impl Renderer {
 
                             x -= min_width;
                             let sysinfo_rect = self.draw_module_text_fixed(
-                                hdc, x, bar_rect.height, &sysinfo_text, item_padding, min_width, theme
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &sysinfo_text,
+                                item_padding,
+                                min_width,
+                                theme,
                             );
-                            self.module_bounds.insert("system_info".to_string(), sysinfo_rect);
+                            self.module_bounds
+                                .insert("system_info".to_string(), sysinfo_rect);
                             x -= item_spacing;
                         }
                     }
 
                     "media" => {
-                        let media_text = self.module_registry
+                        let media_text = self
+                            .module_registry
                             .get("media")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_default();
@@ -418,7 +523,13 @@ impl Renderer {
                             let (text_width, _) = self.measure_text(hdc, &media_text);
                             x -= text_width + item_padding * 2;
                             let media_rect = self.draw_module_text(
-                                hdc, x, bar_rect.height, &media_text, item_padding, theme, false
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &media_text,
+                                item_padding,
+                                theme,
+                                false,
                             );
                             self.module_bounds.insert("media".to_string(), media_rect);
                             x -= item_spacing;
@@ -427,16 +538,24 @@ impl Renderer {
 
                     "clipboard" => {
                         // Render clipboard module (shows latest entry or icon)
-                        let clipboard_text = self.module_registry
+                        let clipboard_text = self
+                            .module_registry
                             .get("clipboard")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| "📋".to_string());
                         let (text_width, _) = self.measure_text(hdc, &clipboard_text);
                         x -= text_width + item_padding * 2;
                         let clip_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &clipboard_text, item_padding, theme, false
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &clipboard_text,
+                            item_padding,
+                            theme,
+                            false,
                         );
-                        self.module_bounds.insert("clipboard".to_string(), clip_rect);
+                        self.module_bounds
+                            .insert("clipboard".to_string(), clip_rect);
                         x -= item_spacing;
                     }
 
@@ -447,10 +566,21 @@ impl Renderer {
                             let graph_height = bar_rect.height - self.scale(8);
                             x -= graph_width + item_padding * 2;
 
-                            let rect = Rect::new(x, (bar_rect.height - graph_height) / 2, graph_width + item_padding * 2, graph_height);
+                            let rect = Rect::new(
+                                x,
+                                (bar_rect.height - graph_height) / 2,
+                                graph_width + item_padding * 2,
+                                graph_height,
+                            );
                             unsafe {
-                                let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
-                                let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
+                                let bg_brush =
+                                    CreateSolidBrush(theme.background_secondary.to_colorref());
+                                let r = windows::Win32::Foundation::RECT {
+                                    left: rect.x,
+                                    top: rect.y,
+                                    right: rect.x + rect.width,
+                                    bottom: rect.y + rect.height,
+                                };
                                 FillRect(hdc, &r, bg_brush);
                                 let _ = DeleteObject(bg_brush);
 
@@ -467,16 +597,24 @@ impl Renderer {
                                             let mut points: Vec<(i32, i32)> = Vec::new();
                                             for v in values.iter() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let y = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                let y = rect.y
+                                                    + 2
+                                                    + ((1.0 - clamped) * inner_h as f32) as i32;
                                                 points.push((x_pos, y));
                                                 x_pos += step as i32;
                                             }
 
-                                            let pen = CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
+                                            let pen =
+                                                CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
                                             let old_pen = SelectObject(hdc, pen);
                                             // Move to first
                                             if let Some((sx, sy)) = points.first() {
-                                                let _ = MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                                let _ = MoveToEx(
+                                                    hdc,
+                                                    *sx,
+                                                    *sy,
+                                                    Some(std::ptr::null_mut()),
+                                                );
                                                 for (px, py) in points.iter().skip(1) {
                                                     let _ = LineTo(hdc, *px, *py);
                                                 }
@@ -491,7 +629,8 @@ impl Renderer {
                             self.module_bounds.insert("gpu".to_string(), rect);
                             x -= item_spacing;
                         } else {
-                            let gpu_text = self.module_registry
+                            let gpu_text = self
+                                .module_registry
                                 .get("gpu")
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| self.icons.get("gpu"));
@@ -499,7 +638,13 @@ impl Renderer {
                             let min_width = self.scale(75);
                             x -= min_width;
                             let gpu_rect = self.draw_module_text_fixed(
-                                hdc, x, bar_rect.height, &gpu_text, item_padding, min_width, theme
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &gpu_text,
+                                item_padding,
+                                min_width,
+                                theme,
                             );
                             self.module_bounds.insert("gpu".to_string(), gpu_rect);
                             x -= item_spacing;
@@ -507,63 +652,94 @@ impl Renderer {
                     }
 
                     "keyboard_layout" => {
-                        let keyboard_text = self.module_registry
+                        let keyboard_text = self
+                            .module_registry
                             .get("keyboard_layout")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| "EN".to_string());
                         let (text_width, _) = self.measure_text(hdc, &keyboard_text);
                         x -= text_width + item_padding * 2;
                         let keyboard_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &keyboard_text, item_padding, theme, false
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &keyboard_text,
+                            item_padding,
+                            theme,
+                            false,
                         );
-                        self.module_bounds.insert("keyboard_layout".to_string(), keyboard_rect);
+                        self.module_bounds
+                            .insert("keyboard_layout".to_string(), keyboard_rect);
                         x -= item_spacing;
                     }
 
                     "uptime" => {
-                        let uptime_text = self.module_registry
+                        let uptime_text = self
+                            .module_registry
                             .get("uptime")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| "0d 0h".to_string());
                         let min_width = self.scale(72);
                         x -= min_width;
                         let uptime_rect = self.draw_module_text_fixed(
-                            hdc, x, bar_rect.height, &uptime_text, item_padding, min_width, theme
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &uptime_text,
+                            item_padding,
+                            min_width,
+                            theme,
                         );
                         self.module_bounds.insert("uptime".to_string(), uptime_rect);
                         x -= item_spacing;
                     }
 
                     "bluetooth" => {
-                        let bluetooth_text = self.module_registry
+                        let bluetooth_text = self
+                            .module_registry
                             .get("bluetooth")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("bluetooth"));
                         let (text_width, _) = self.measure_text(hdc, &bluetooth_text);
                         x -= text_width + item_padding * 2;
                         let bluetooth_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &bluetooth_text, item_padding, theme, false
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &bluetooth_text,
+                            item_padding,
+                            theme,
+                            false,
                         );
-                        self.module_bounds.insert("bluetooth".to_string(), bluetooth_rect);
+                        self.module_bounds
+                            .insert("bluetooth".to_string(), bluetooth_rect);
                         x -= item_spacing;
                     }
 
                     "disk" => {
-                        let disk_text = self.module_registry
+                        let disk_text = self
+                            .module_registry
                             .get("disk")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("disk"));
                         let (text_width, _) = self.measure_text(hdc, &disk_text);
                         x -= text_width + item_padding * 2;
                         let disk_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &disk_text, item_padding, theme, false
+                            hdc,
+                            x,
+                            bar_rect.height,
+                            &disk_text,
+                            item_padding,
+                            theme,
+                            false,
                         );
                         self.module_bounds.insert("disk".to_string(), disk_rect);
                         x -= item_spacing;
                     }
 
                     "weather" => {
-                        let weather_text = self.module_registry
+                        let weather_text = self
+                            .module_registry
                             .get("weather")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| "🌡️ ...".to_string());
@@ -571,9 +747,16 @@ impl Renderer {
                             let (text_width, _) = self.measure_text(hdc, &weather_text);
                             x -= text_width + item_padding * 2;
                             let weather_rect = self.draw_module_text(
-                                hdc, x, bar_rect.height, &weather_text, item_padding, theme, false
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &weather_text,
+                                item_padding,
+                                theme,
+                                false,
                             );
-                            self.module_bounds.insert("weather".to_string(), weather_rect);
+                            self.module_bounds
+                                .insert("weather".to_string(), weather_rect);
                             x -= item_spacing;
                         }
                     }
@@ -582,62 +765,73 @@ impl Renderer {
                 }
             }
 
-                // If a drag is active, draw the dragged item as an overlay and a drop marker
-                if let Some(state) = get_window_state() {
-                    let s = state.read();
-                    if let Some(drag_id) = &s.dragging_module {
-                        // Determine display text for dragged module
-                        let display = self.module_registry
-                            .get(drag_id)
-                            .map(|m| m.display_text(&*config))
-                            .unwrap_or_else(|| drag_id.clone());
+            // If a drag is active, draw the dragged item as an overlay and a drop marker
+            if let Some(state) = get_window_state() {
+                let s = state.read();
+                if let Some(drag_id) = &s.dragging_module {
+                    // Determine display text for dragged module
+                    let display = self
+                        .module_registry
+                        .get(drag_id)
+                        .map(|m| m.display_text(&*config))
+                        .unwrap_or_else(|| drag_id.clone());
 
-                        let (text_w, text_h) = self.measure_text(hdc, &display);
-                        let width = text_w + item_padding * 2;
-                        let height = text_h + item_padding + 2;
-                        let y = (bar_rect.height - height) / 2;
-                        let x_pos = s.drag_current_x - width / 2;
+                    let (text_w, text_h) = self.measure_text(hdc, &display);
+                    let width = text_w + item_padding * 2;
+                    let height = text_h + item_padding + 2;
+                    let y = (bar_rect.height - height) / 2;
+                    let x_pos = s.drag_current_x - width / 2;
 
-                        unsafe {
-                            // Draw background
-                            let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
-                            let r = windows::Win32::Foundation::RECT { left: x_pos, top: y, right: x_pos + width, bottom: y + height };
-                            FillRect(hdc, &r, bg_brush);
-                            let _ = DeleteObject(bg_brush);
+                    unsafe {
+                        // Draw background
+                        let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
+                        let r = windows::Win32::Foundation::RECT {
+                            left: x_pos,
+                            top: y,
+                            right: x_pos + width,
+                            bottom: y + height,
+                        };
+                        FillRect(hdc, &r, bg_brush);
+                        let _ = DeleteObject(bg_brush);
 
-                            // Draw text
-                            SetTextColor(hdc, theme.text_primary.to_colorref());
-                            self.draw_text(hdc, x_pos + item_padding, (bar_rect.height - text_h) / 2, &display);
+                        // Draw text
+                        SetTextColor(hdc, theme.text_primary.to_colorref());
+                        self.draw_text(
+                            hdc,
+                            x_pos + item_padding,
+                            (bar_rect.height - text_h) / 2,
+                            &display,
+                        );
 
-                            // Draw insertion marker
-                            let pen = CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
-                            let old_pen = SelectObject(hdc, pen);
-                            let top = self.scale(6);
-                            let bottom = bar_rect.height - self.scale(6);
-                            let _ = MoveToEx(hdc, s.drag_current_x, top, None);
-                            let _ = LineTo(hdc, s.drag_current_x, bottom);
-                            let _ = SelectObject(hdc, old_pen);
-                            let _ = DeleteObject(pen);
-                        }
+                        // Draw insertion marker
+                        let pen = CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
+                        let old_pen = SelectObject(hdc, pen);
+                        let top = self.scale(6);
+                        let bottom = bar_rect.height - self.scale(6);
+                        let _ = MoveToEx(hdc, s.drag_current_x, top, None);
+                        let _ = LineTo(hdc, s.drag_current_x, bottom);
+                        let _ = SelectObject(hdc, old_pen);
+                        let _ = DeleteObject(pen);
                     }
                 }
             }
+        }
     }
 
     /// Draw a module button with modern hover effect
-            fn draw_module_button(
-                &self,
-                hdc: HDC,
-                x: i32,
-                bar_height: i32,
-                text: &str,
-                padding: i32,
-                theme: &Theme,
-                is_hovered: bool,
-            ) -> Rect {
+    fn draw_module_button(
+        &self,
+        hdc: HDC,
+        x: i32,
+        bar_height: i32,
+        text: &str,
+        padding: i32,
+        theme: &Theme,
+        is_hovered: bool,
+    ) -> Rect {
         let (text_width, text_height) = self.measure_text(hdc, text);
         let width = text_width + padding * 2;
-        let height = text_height + padding + 4;  // Slightly taller for better tap targets
+        let height = text_height + padding + 4; // Slightly taller for better tap targets
         let y = (bar_height - height) / 2;
 
         unsafe {
@@ -645,7 +839,7 @@ impl Renderer {
             if is_hovered {
                 let brush = CreateSolidBrush(theme.background_hover.to_colorref());
                 let rect = windows::Win32::Foundation::RECT {
-                    left: x + 2,  // Slight inset for visual softness
+                    left: x + 2, // Slight inset for visual softness
                     top: y + 1,
                     right: x + width - 2,
                     bottom: y + height - 1,
@@ -676,7 +870,7 @@ impl Renderer {
     ) -> Rect {
         let (text_width, text_height) = self.measure_text(hdc, text);
         let width = text_width + padding * 2;
-        let height = text_height + padding + 2;  // Balanced height
+        let height = text_height + padding + 2; // Balanced height
         let y = (bar_height - height) / 2;
 
         unsafe {
@@ -755,7 +949,7 @@ impl Renderer {
         unsafe {
             let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
             let mut size = windows::Win32::Foundation::SIZE::default();
-            let _ = GetTextExtentPoint32W(hdc, &wide[..wide.len()-1], &mut size);
+            let _ = GetTextExtentPoint32W(hdc, &wide[..wide.len() - 1], &mut size);
             (size.cx, size.cy)
         }
     }
@@ -764,7 +958,7 @@ impl Renderer {
     fn draw_text(&self, hdc: HDC, x: i32, y: i32, text: &str) {
         unsafe {
             let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-            let _ = TextOutW(hdc, x, y, &wide[..wide.len()-1]);
+            let _ = TextOutW(hdc, x, y, &wide[..wide.len() - 1]);
         }
     }
 
@@ -778,14 +972,14 @@ impl Renderer {
             // This gives better visual hierarchy and readability
             lf.lfWeight = if bold { 600 } else { 400 };
             lf.lfCharSet = DEFAULT_CHARSET;
-            lf.lfOutPrecision = OUT_TT_PRECIS;  // TrueType preferred
+            lf.lfOutPrecision = OUT_TT_PRECIS; // TrueType preferred
             lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf.lfQuality = CLEARTYPE_QUALITY;  // ClearType for smooth text
+            lf.lfQuality = CLEARTYPE_QUALITY; // ClearType for smooth text
             lf.lfPitchAndFamily = VARIABLE_PITCH.0 | FF_SWISS.0;
-            
+
             let face_len = family_wide.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family_wide[..face_len]);
-            
+
             CreateFontIndirectW(&lf)
         }
     }

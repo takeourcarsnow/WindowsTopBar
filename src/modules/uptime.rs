@@ -59,7 +59,10 @@ impl UptimeModule {
         let seconds = self.uptime_secs % 60;
 
         if days > 0 {
-            format!("{} days, {} hours, {} minutes, {} seconds", days, hours, minutes, seconds)
+            format!(
+                "{} days, {} hours, {} minutes, {} seconds",
+                days, hours, minutes, seconds
+            )
         } else if hours > 0 {
             format!("{} hours, {} minutes, {} seconds", hours, minutes, seconds)
         } else if minutes > 0 {

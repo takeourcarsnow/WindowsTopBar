@@ -1,8 +1,8 @@
 //! Clipboard manager module
 
-use std::time::Instant;
 use super::Module;
 use crate::utils::truncate_string;
+use std::time::Instant;
 
 pub struct ClipboardModule {
     history: Vec<String>,

@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::tray::TrayIcon;
-use crate::window::WindowManager;
 use crate::utils::enable_dark_mode_for_app;
+use crate::window::WindowManager;
 
 /// Main application state
 pub struct Application {
@@ -63,7 +63,7 @@ impl Application {
 
         self.is_running = false;
         info!("TopBar main loop ended");
-        
+
         Ok(())
     }
 
@@ -71,7 +71,7 @@ impl Application {
     pub fn stop(&mut self) {
         info!("Stopping TopBar application");
         self.is_running = false;
-        
+
         // Hide window
         self.window_manager.hide();
     }
@@ -104,7 +104,7 @@ impl Application {
     /// Reload configuration
     pub fn reload_config(&mut self) -> Result<()> {
         info!("Reloading configuration");
-        
+
         match Config::load_or_default() {
             Ok(config) => {
                 self.config = Arc::new(config);
@@ -171,9 +171,9 @@ impl ApplicationBuilder {
 
     /// Build the application
     pub fn build(self) -> Result<Application> {
-        let config = self.config.unwrap_or_else(|| {
-            Arc::new(Config::load_or_default().unwrap_or_default())
-        });
+        let config = self
+            .config
+            .unwrap_or_else(|| Arc::new(Config::load_or_default().unwrap_or_default()));
 
         Application::new(config)
     }

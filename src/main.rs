@@ -1,5 +1,5 @@
 //! TopBar - A native Windows 11 topbar application inspired by macOS
-//! 
+//!
 //! This application creates a sleek, customizable menu bar at the top of your screen,
 //! similar to macOS, with system information, app menus, and more.
 

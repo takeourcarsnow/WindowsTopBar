@@ -21,13 +21,13 @@ pub struct MediaModule {
     show_now_playing: bool,
     show_controls: bool,
     max_title_length: usize,
-    
+
     // Current media info
     track_title: Option<String>,
     track_artist: Option<String>,
     track_album: Option<String>,
     playback_state: PlaybackState,
-    
+
     last_update: Instant,
 }
 
@@ -51,7 +51,7 @@ impl MediaModule {
         // In a full implementation, this would use Windows.Media.Control
         // (SystemMediaTransportControlsSessionManager) to get media info
         // from apps like Spotify, browser media, etc.
-        
+
         // For now, show placeholder when nothing is playing
         self.cached_text = self.build_display_text();
         self.last_update = Instant::now();
@@ -78,7 +78,7 @@ impl MediaModule {
             if let Some(ref title) = self.track_title {
                 text.push(' ');
                 text.push_str(&truncate_string(title, self.max_title_length));
-                
+
                 if let Some(ref artist) = self.track_artist {
                     text.push_str(" - ");
                     text.push_str(&truncate_string(artist, 20));
@@ -110,7 +110,7 @@ impl MediaModule {
             PlaybackState::Stopped => PlaybackState::Playing,
         };
         self.cached_text = self.build_display_text();
-        
+
         // Send media key
         self.send_media_key(MediaKey::PlayPause);
     }
@@ -129,7 +129,7 @@ impl MediaModule {
     fn send_media_key(&self, key: MediaKey) {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
             SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-            VK_MEDIA_PLAY_PAUSE, VK_MEDIA_PREV_TRACK, VK_MEDIA_NEXT_TRACK,
+            VK_MEDIA_NEXT_TRACK, VK_MEDIA_PLAY_PAUSE, VK_MEDIA_PREV_TRACK,
         };
 
         let vk = match key {
@@ -165,7 +165,7 @@ impl MediaModule {
                     },
                 },
             ];
-            
+
             SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32);
         }
     }
@@ -238,24 +238,24 @@ impl Module for MediaModule {
         };
 
         let mut tooltip = String::new();
-        
+
         if let Some(ref title) = self.track_title {
             tooltip.push_str(title);
             tooltip.push('\n');
         }
-        
+
         if let Some(ref artist) = self.track_artist {
             tooltip.push_str(artist);
             tooltip.push('\n');
         }
-        
+
         if let Some(ref album) = self.track_album {
             tooltip.push_str(album);
             tooltip.push('\n');
         }
-        
+
         tooltip.push_str(&format!("Status: {}", state));
-        
+
         Some(tooltip)
     }
 

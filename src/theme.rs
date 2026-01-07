@@ -1,16 +1,16 @@
 //! Theming system for TopBar
-//! 
+//!
 //! Handles light/dark themes, colors, and visual styling.
 
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::COLORREF;
 use windows::Win32::System::Registry::{
     RegOpenKeyExW, RegQueryValueExW, HKEY_CURRENT_USER, KEY_READ,
 };
-use windows::core::PCWSTR;
 
 /// Theme mode setting
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
@@ -123,52 +123,52 @@ pub struct Theme {
     pub name: String,
     /// Whether this is a dark theme
     pub is_dark: bool,
-    
+
     // Background colors
     pub background: Color,
     pub background_secondary: Color,
     pub background_hover: Color,
     pub background_active: Color,
-    
+
     // Text colors
     pub text_primary: Color,
     pub text_secondary: Color,
     pub text_disabled: Color,
     pub text_accent: Color,
-    
+
     // Accent colors
     pub accent: Color,
     pub accent_hover: Color,
     pub accent_active: Color,
-    
+
     // Border colors
     pub border: Color,
     pub border_hover: Color,
-    
+
     // Status colors
     pub success: Color,
     pub warning: Color,
     pub error: Color,
     pub info: Color,
-    
+
     // Special colors
     pub shadow: Color,
     pub overlay: Color,
-    
+
     // Module-specific colors
     pub battery_full: Color,
     pub battery_medium: Color,
     pub battery_low: Color,
     pub battery_critical: Color,
     pub battery_charging: Color,
-    
+
     pub network_connected: Color,
     pub network_disconnected: Color,
-    
+
     pub cpu_normal: Color,
     pub cpu_high: Color,
     pub cpu_critical: Color,
-    
+
     pub memory_normal: Color,
     pub memory_high: Color,
     pub memory_critical: Color,
@@ -180,53 +180,53 @@ impl Theme {
         Self {
             name: "Light".to_string(),
             is_dark: false,
-            
+
             // macOS Big Sur-inspired translucent white
-            background: Color::new(252, 252, 254, 230),  // Brighter, more translucent
+            background: Color::new(252, 252, 254, 230), // Brighter, more translucent
             background_secondary: Color::new(246, 246, 248, 250),
-            background_hover: Color::new(0, 0, 0, 8),  // Gentler hover
+            background_hover: Color::new(0, 0, 0, 8), // Gentler hover
             background_active: Color::new(0, 0, 0, 15),
-            
+
             // High-contrast text for excellent readability
-            text_primary: Color::rgb(26, 26, 28),  // Near black
-            text_secondary: Color::rgb(90, 90, 95),  // Medium gray with good contrast
+            text_primary: Color::rgb(26, 26, 28),   // Near black
+            text_secondary: Color::rgb(90, 90, 95), // Medium gray with good contrast
             text_disabled: Color::rgb(150, 150, 155),
-            text_accent: Color::rgb(0, 122, 255),  // iOS/macOS blue
-            
+            text_accent: Color::rgb(0, 122, 255), // iOS/macOS blue
+
             // iOS/macOS system blue
             accent: Color::rgb(0, 122, 255),
             accent_hover: Color::rgb(0, 108, 230),
             accent_active: Color::rgb(0, 95, 204),
-            
-            border: Color::new(0, 0, 0, 10),  // Ultra subtle
+
+            border: Color::new(0, 0, 0, 10), // Ultra subtle
             border_hover: Color::new(0, 0, 0, 20),
-            
+
             // macOS-style system colors
-            success: Color::rgb(52, 199, 89),  // macOS green
-            warning: Color::rgb(255, 149, 0),  // macOS orange
-            error: Color::rgb(255, 69, 58),  // macOS red
+            success: Color::rgb(52, 199, 89), // macOS green
+            warning: Color::rgb(255, 149, 0), // macOS orange
+            error: Color::rgb(255, 69, 58),   // macOS red
             info: Color::rgb(0, 122, 255),
-            
+
             shadow: Color::new(0, 0, 0, 20),
             overlay: Color::new(0, 0, 0, 35),
-            
+
             // Battery with macOS color scheme
             battery_full: Color::rgb(52, 199, 89),
             battery_medium: Color::rgb(255, 204, 0),
             battery_low: Color::rgb(255, 149, 0),
             battery_critical: Color::rgb(255, 69, 58),
             battery_charging: Color::rgb(52, 199, 89),
-            
+
             // Network status
             network_connected: Color::rgb(52, 199, 89),
             network_disconnected: Color::rgb(150, 150, 155),
-            
+
             // System metrics with vibrant colors
             cpu_normal: Color::rgb(0, 122, 255),
             cpu_high: Color::rgb(255, 149, 0),
             cpu_critical: Color::rgb(255, 69, 58),
-            
-            memory_normal: Color::rgb(175, 82, 222),  // macOS purple
+
+            memory_normal: Color::rgb(175, 82, 222), // macOS purple
             memory_high: Color::rgb(255, 149, 0),
             memory_critical: Color::rgb(255, 69, 58),
         }
@@ -237,53 +237,53 @@ impl Theme {
         Self {
             name: "Dark".to_string(),
             is_dark: true,
-            
+
             // macOS Monterey-inspired dark glass
-            background: Color::new(30, 30, 32, 245),  // Rich dark with high opacity
+            background: Color::new(30, 30, 32, 245), // Rich dark with high opacity
             background_secondary: Color::new(44, 44, 46, 255),
-            background_hover: Color::new(255, 255, 255, 12),  // Subtle white glow
+            background_hover: Color::new(255, 255, 255, 12), // Subtle white glow
             background_active: Color::new(255, 255, 255, 22),
-            
+
             // Brighter text for better dark mode contrast
-            text_primary: Color::rgb(255, 255, 255),  // Pure white
-            text_secondary: Color::rgb(170, 170, 175),  // Lighter gray
+            text_primary: Color::rgb(255, 255, 255), // Pure white
+            text_secondary: Color::rgb(170, 170, 175), // Lighter gray
             text_disabled: Color::rgb(100, 100, 105),
-            text_accent: Color::rgb(10, 132, 255),  // iOS dark mode blue
-            
+            text_accent: Color::rgb(10, 132, 255), // iOS dark mode blue
+
             // iOS/macOS dark mode accent
             accent: Color::rgb(10, 132, 255),
             accent_hover: Color::rgb(50, 152, 255),
             accent_active: Color::rgb(80, 165, 255),
-            
-            border: Color::new(255, 255, 255, 10),  // Soft white edges
+
+            border: Color::new(255, 255, 255, 10), // Soft white edges
             border_hover: Color::new(255, 255, 255, 25),
-            
+
             // macOS dark mode system colors
             success: Color::rgb(48, 209, 88),  // Bright green
-            warning: Color::rgb(255, 159, 10),  // Vivid orange
-            error: Color::rgb(255, 79, 68),  // Bright red
+            warning: Color::rgb(255, 159, 10), // Vivid orange
+            error: Color::rgb(255, 79, 68),    // Bright red
             info: Color::rgb(10, 132, 255),
-            
-            shadow: Color::new(0, 0, 0, 120),  // Deeper shadows
+
+            shadow: Color::new(0, 0, 0, 120), // Deeper shadows
             overlay: Color::new(0, 0, 0, 150),
-            
+
             // Battery colors for dark mode
             battery_full: Color::rgb(48, 209, 88),
             battery_medium: Color::rgb(255, 214, 10),
             battery_low: Color::rgb(255, 159, 10),
             battery_critical: Color::rgb(255, 79, 68),
             battery_charging: Color::rgb(48, 209, 88),
-            
+
             // Network status
             network_connected: Color::rgb(48, 209, 88),
             network_disconnected: Color::rgb(130, 130, 135),
-            
+
             // System metrics - bright and clear
             cpu_normal: Color::rgb(10, 132, 255),
             cpu_high: Color::rgb(255, 159, 10),
             cpu_critical: Color::rgb(255, 79, 68),
-            
-            memory_normal: Color::rgb(191, 90, 242),  // Bright purple
+
+            memory_normal: Color::rgb(191, 90, 242), // Bright purple
             memory_high: Color::rgb(255, 159, 10),
             memory_critical: Color::rgb(255, 79, 68),
         }
@@ -393,7 +393,7 @@ impl ThemeManager {
     pub fn check_system_theme(&mut self) -> bool {
         let system_is_dark = detect_system_dark_mode();
         let prev = self.system_is_dark.swap(system_is_dark, Ordering::Relaxed);
-        
+
         if prev != system_is_dark && self.mode == ThemeMode::Auto {
             self.update_theme();
             return true;
@@ -426,10 +426,11 @@ impl ThemeManager {
 fn detect_system_dark_mode() -> bool {
     unsafe {
         let mut key = windows::Win32::System::Registry::HKEY::default();
-        let subkey: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\0"
-            .encode_utf16()
-            .collect();
-        
+        let subkey: Vec<u16> =
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\0"
+                .encode_utf16()
+                .collect();
+
         let result = RegOpenKeyExW(
             HKEY_CURRENT_USER,
             PCWSTR::from_raw(subkey.as_ptr()),
@@ -458,7 +459,7 @@ fn detect_system_dark_mode() -> bool {
         let _ = windows::Win32::System::Registry::RegCloseKey(key);
 
         if result.is_ok() {
-            data == 0  // 0 means dark mode, 1 means light mode
+            data == 0 // 0 means dark mode, 1 means light mode
         } else {
             false
         }
@@ -472,7 +473,7 @@ pub fn get_windows_accent_color() -> Option<Color> {
         let subkey: Vec<u16> = "Software\\Microsoft\\Windows\\DWM\0"
             .encode_utf16()
             .collect();
-        
+
         let result = RegOpenKeyExW(
             HKEY_CURRENT_USER,
             PCWSTR::from_raw(subkey.as_ptr()),

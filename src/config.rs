@@ -1,11 +1,11 @@
 //! Configuration management for TopBar
-//! 
+//!
 //! Handles loading, saving, and managing user preferences and settings.
 
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use anyhow::Result;
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use crate::theme::ThemeMode;
 
@@ -36,7 +36,7 @@ impl Config {
     /// Load configuration from file or create default
     pub fn load_or_default() -> Result<Self> {
         let config_path = Self::config_path();
-        
+
         if config_path.exists() {
             info!("Loading configuration from: {:?}", config_path);
             let content = std::fs::read_to_string(&config_path)?;
@@ -56,7 +56,7 @@ impl Config {
     /// Save configuration to file
     pub fn save(&self) -> Result<()> {
         let config_path = Self::config_path();
-        
+
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -130,15 +130,15 @@ impl Default for AppearanceConfig {
         Self {
             theme_mode: ThemeMode::Auto,
             accent_color: None,
-            bar_height: 34,  // macOS-inspired height for better proportions
-            opacity: 0.90,   // Balanced opacity for modern glass aesthetic
+            bar_height: 34, // macOS-inspired height for better proportions
+            opacity: 0.90,  // Balanced opacity for modern glass aesthetic
             blur_enabled: true,
-            blur_intensity: 50,  // Enhanced blur for premium glass effect
-            corner_radius: 12,   // macOS-style rounded corners
-            font_family: "Segoe UI Variable Text".to_string(),  // SF Pro-inspired modern font
+            blur_intensity: 50, // Enhanced blur for premium glass effect
+            corner_radius: 12,  // macOS-style rounded corners
+            font_family: "Segoe UI Variable Text".to_string(), // SF Pro-inspired modern font
             font_size: 13,
             animations_enabled: true,
-            animation_speed: 100,  // macOS-style snappy animations (100ms)
+            animation_speed: 100, // macOS-style snappy animations (100ms)
             shadow_enabled: true,
             position: BarPosition::Top,
             monitor: 0,
@@ -206,10 +206,7 @@ impl Default for ModulesConfig {
             uptime: UptimeConfig::default(),
             bluetooth: BluetoothConfig::default(),
             disk: DiskConfig::default(),
-            left_modules: vec![
-                "app_menu".to_string(),
-                "active_app".to_string(),
-            ],
+            left_modules: vec!["app_menu".to_string(), "active_app".to_string()],
             center_modules: vec![],
             right_modules: vec![
                 "weather".to_string(),
@@ -254,7 +251,7 @@ impl Default for ClockConfig {
             show_date: true,
             show_day: true,
             center: false,
-            date_format: "%a, %b %d".to_string(),  // Include day name: "Tue, Jan 7"
+            date_format: "%a, %b %d".to_string(), // Include day name: "Tue, Jan 7"
         }
     }
 }
@@ -283,7 +280,7 @@ impl Default for SystemInfoConfig {
             show_memory: true,
             show_disk: false,
             show_gpu: false,
-            update_interval_ms: 1500,  // Slightly faster updates for responsiveness
+            update_interval_ms: 1500, // Slightly faster updates for responsiveness
             show_graph: false,
         }
     }
@@ -307,8 +304,8 @@ pub struct WeatherConfig {
 impl Default for WeatherConfig {
     fn default() -> Self {
         Self {
-            enabled: true,  // Enabled by default - no API key needed!
-            location: "auto".to_string(),  // Auto-detect based on IP
+            enabled: true,                // Enabled by default - no API key needed!
+            location: "auto".to_string(), // Auto-detect based on IP
             unit: TemperatureUnit::Celsius,
             show_icon: true,
             update_interval_min: 30,
@@ -453,7 +450,7 @@ impl Default for MediaConfig {
             show_album_art: true,
             show_controls: true,
             scroll_title: true,
-            max_title_length: 35,  // Slightly longer for better context
+            max_title_length: 35, // Slightly longer for better context
         }
     }
 }
@@ -543,7 +540,7 @@ impl Default for GpuConfig {
             enabled: true,
             show_usage: true,
             show_graph: false,
-            update_interval_ms: 1500,  // More responsive updates
+            update_interval_ms: 1500, // More responsive updates
         }
     }
 }
@@ -590,7 +587,7 @@ impl Default for BehaviorConfig {
     fn default() -> Self {
         Self {
             auto_hide: false,
-            auto_hide_delay_ms: 800,  // Faster response for better UX
+            auto_hide_delay_ms: 800, // Faster response for better UX
             reserve_space: true,
             all_desktops: true,
             drag_to_move: false,
@@ -702,7 +699,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_tmp_dir() -> PathBuf {
-        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let n = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         let mut p = env::temp_dir();
         p.push(format!("topbar_test_{}", n));
         p
@@ -726,9 +726,16 @@ mod tests {
         let p = Config::config_path();
         // Ensure filename is correct and contains the topbar directory.
         let s = p.to_string_lossy();
-        assert!(s.ends_with("topbar/config.toml") || s.ends_with("topbar\\config.toml"),
-                "config path does not end with topbar/config.toml: {}", s);
-        assert!(s.contains("topbar"), "config path does not contain topbar: {}", s);
+        assert!(
+            s.ends_with("topbar/config.toml") || s.ends_with("topbar\\config.toml"),
+            "config path does not end with topbar/config.toml: {}",
+            s
+        );
+        assert!(
+            s.contains("topbar"),
+            "config path does not contain topbar: {}",
+            s
+        );
     }
 
     #[test]
@@ -749,6 +756,4 @@ mod tests {
         // cleanup
         let _ = fs::remove_dir_all(&tmp);
     }
-
 }
-

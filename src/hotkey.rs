@@ -1,5 +1,5 @@
 //! Hotkey system for TopBar
-//! 
+//!
 //! Handles global hotkey registration and processing.
 
 #![allow(dead_code)]
@@ -9,8 +9,7 @@ use log::{debug, info, warn};
 use std::collections::HashMap;
 use windows::Win32::Foundation::{HWND, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    RegisterHotKey, UnregisterHotKey, MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN,
-    HOT_KEY_MODIFIERS,
+    RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS, MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN,
 };
 
 /// Hotkey action
@@ -48,7 +47,7 @@ impl Hotkey {
 
         for (i, part) in parts.iter().enumerate() {
             let part_upper = part.to_uppercase();
-            
+
             if i == parts.len() - 1 {
                 // Last part is the key
                 key = Self::parse_key(&part_upper)?;
@@ -64,7 +63,11 @@ impl Hotkey {
             }
         }
 
-        Some(Self { modifiers, key, action })
+        Some(Self {
+            modifiers,
+            key,
+            action,
+        })
     }
 
     /// Parse a key name to virtual key code

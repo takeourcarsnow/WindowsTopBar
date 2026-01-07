@@ -44,7 +44,8 @@ impl DiskModule {
         // Respect configured primary disk if present (match by mount point or name)
         if !config.modules.disk.primary_disk.is_empty() {
             if let Some(pos) = self.disks.iter().position(|d| {
-                d.mount_point.starts_with(&config.modules.disk.primary_disk) || d.name == config.modules.disk.primary_disk
+                d.mount_point.starts_with(&config.modules.disk.primary_disk)
+                    || d.name == config.modules.disk.primary_disk
             }) {
                 self.primary_disk_index = pos;
             }
@@ -57,15 +58,15 @@ impl DiskModule {
     /// Query disk information using sysinfo
     fn query_disk_info(&mut self) {
         let disks = Disks::new_with_refreshed_list();
-        
+
         self.disks.clear();
         for disk in disks.list() {
             let total = disk.total_space();
             let available = disk.available_space();
             let used = total.saturating_sub(available);
-            
+
             let mount = disk.mount_point().to_string_lossy().to_string();
-            
+
             self.disks.push(DiskInfo {
                 name: disk.name().to_string_lossy().to_string(),
                 mount_point: mount,
@@ -76,7 +77,9 @@ impl DiskModule {
         }
 
         // Find primary disk (usually C:)
-        self.primary_disk_index = self.disks.iter()
+        self.primary_disk_index = self
+            .disks
+            .iter()
             .position(|d| d.mount_point.starts_with("C:") || d.mount_point == "/")
             .unwrap_or(0);
     }
@@ -103,7 +106,7 @@ impl DiskModule {
         if self.disks.is_empty() {
             return 0;
         }
-        
+
         let primary = &self.disks[self.primary_disk_index];
         if primary.total_space > 0 {
             (primary.used_space as f64 / primary.total_space as f64 * 100.0) as u32
@@ -172,17 +175,21 @@ impl Module for DiskModule {
         }
 
         let mut lines: Vec<String> = vec!["Disk Usage:".to_string()];
-        
+
         for disk in &self.disks {
             let usage_percent = if disk.total_space > 0 {
                 (disk.used_space as f64 / disk.total_space as f64 * 100.0) as u32
             } else {
                 0
             };
-            
+
             lines.push(format!(
                 "{} {} / {} ({:.0}%)",
-                if disk.mount_point.is_empty() { &disk.name } else { &disk.mount_point },
+                if disk.mount_point.is_empty() {
+                    &disk.name
+                } else {
+                    &disk.mount_point
+                },
                 format_bytes(disk.used_space),
                 format_bytes(disk.total_space),
                 usage_percent

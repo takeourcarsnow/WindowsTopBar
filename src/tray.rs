@@ -11,12 +11,11 @@ use windows::Win32::UI::Shell::{
     NOTIFYICONDATAW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DestroyIcon, LoadImageW, HICON, IMAGE_ICON,
-    LR_DEFAULTSIZE, LR_SHARED,
+    DestroyIcon, LoadImageW, HICON, IMAGE_ICON, LR_DEFAULTSIZE, LR_SHARED,
 };
 
-use crate::window::WM_TOPBAR_TRAY;
 use crate::utils::to_wide_string;
+use crate::window::WM_TOPBAR_TRAY;
 
 /// Tray icon identifier
 const TRAY_ICON_ID: u32 = 1;
@@ -32,15 +31,15 @@ impl TrayIcon {
     /// Create a new tray icon
     pub fn new(hwnd: HWND) -> Result<Self> {
         let icon = Self::load_default_icon()?;
-        
+
         let mut tray = Self {
             hwnd,
             icon,
             is_added: false,
         };
-        
+
         tray.add()?;
-        
+
         Ok(tray)
     }
 
@@ -57,7 +56,7 @@ impl TrayIcon {
                 0,
                 LR_DEFAULTSIZE | LR_SHARED,
             )?;
-            
+
             Ok(HICON(icon.0))
         }
     }
@@ -65,7 +64,7 @@ impl TrayIcon {
     /// Add the tray icon
     fn add(&mut self) -> Result<()> {
         let tooltip = to_wide_string("TopBar - Click to toggle");
-        
+
         let mut nid = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: self.hwnd,
@@ -85,10 +84,10 @@ impl TrayIcon {
                 return Err(anyhow::anyhow!("Failed to add tray icon"));
             }
         }
-        
+
         self.is_added = true;
         info!("Tray icon added");
-        
+
         Ok(())
     }
 
@@ -110,10 +109,10 @@ impl TrayIcon {
                 return Err(anyhow::anyhow!("Failed to remove tray icon"));
             }
         }
-        
+
         self.is_added = false;
         info!("Tray icon removed");
-        
+
         Ok(())
     }
 
@@ -124,7 +123,7 @@ impl TrayIcon {
         }
 
         let tooltip = to_wide_string(text);
-        
+
         let mut nid = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: self.hwnd,
@@ -141,7 +140,7 @@ impl TrayIcon {
                 return Err(anyhow::anyhow!("Failed to update tray tooltip"));
             }
         }
-        
+
         Ok(())
     }
 
@@ -165,18 +164,20 @@ impl TrayIcon {
                 return Err(anyhow::anyhow!("Failed to update tray icon"));
             }
         }
-        
+
         self.icon = icon;
-        
+
         Ok(())
     }
 
     /// Handle tray icon click
     pub fn handle_click(&self, lparam: LPARAM) {
-        use windows::Win32::UI::WindowsAndMessaging::{WM_LBUTTONUP, WM_RBUTTONUP, WM_LBUTTONDBLCLK};
-        
+        use windows::Win32::UI::WindowsAndMessaging::{
+            WM_LBUTTONDBLCLK, WM_LBUTTONUP, WM_RBUTTONUP,
+        };
+
         let message = (lparam.0 & 0xFFFF) as u32;
-        
+
         match message {
             WM_LBUTTONUP => {
                 debug!("Tray icon left clicked");
@@ -273,12 +274,12 @@ impl TrayMenu {
 
     /// Show the context menu at cursor position
     pub fn show(&self, hwnd: HWND) -> Option<u32> {
-        use windows::Win32::UI::WindowsAndMessaging::{
-            CreatePopupMenu, DestroyMenu, InsertMenuW, SetForegroundWindow,
-            TrackPopupMenu, GetCursorPos, MF_STRING, MF_SEPARATOR, MF_CHECKED,
-            MF_GRAYED, TPM_RIGHTBUTTON, TPM_RETURNCMD,
-        };
         use windows::Win32::Foundation::POINT;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreatePopupMenu, DestroyMenu, GetCursorPos, InsertMenuW, SetForegroundWindow,
+            TrackPopupMenu, MF_CHECKED, MF_GRAYED, MF_SEPARATOR, MF_STRING, TPM_RETURNCMD,
+            TPM_RIGHTBUTTON,
+        };
 
         unsafe {
             let menu = CreatePopupMenu().ok()?;
@@ -307,7 +308,8 @@ impl TrayMenu {
                         flags,
                         item.id as usize,
                         PCWSTR::from_raw(label.as_ptr()),
-                    ).ok()?;
+                    )
+                    .ok()?;
                 }
             }
 

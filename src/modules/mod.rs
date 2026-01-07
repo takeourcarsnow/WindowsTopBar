@@ -1,25 +1,25 @@
 //! Module system for TopBar
-//! 
+//!
 //! Modules are individual components that display information or provide
 //! functionality in the topbar.
 
 #![allow(dead_code)]
 
-pub mod clock;
-pub mod system_info;
-pub mod battery;
-pub mod network;
-pub mod volume;
-pub mod app_menu;
 pub mod active_window;
-pub mod media;
-pub mod weather;
+pub mod app_menu;
+pub mod battery;
+pub mod bluetooth;
+pub mod clipboard;
+pub mod clock;
+pub mod disk;
 pub mod gpu;
 pub mod keyboard_layout;
+pub mod media;
+pub mod network;
+pub mod system_info;
 pub mod uptime;
-pub mod bluetooth;
-pub mod disk;
-pub mod clipboard;
+pub mod volume;
+pub mod weather;
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -127,7 +127,7 @@ impl ModuleRegistry {
         registry.register(Box::new(active_window::ActiveWindowModule::new()));
         registry.register(Box::new(media::MediaModule::new()));
         registry.register(Box::new(clipboard::ClipboardModule::new()));
-        
+
         // Register new modules
         registry.register(Box::new(weather::WeatherModule::new()));
         registry.register(Box::new(gpu::GpuModule::new()));

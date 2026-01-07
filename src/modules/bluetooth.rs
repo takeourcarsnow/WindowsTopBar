@@ -2,8 +2,8 @@
 
 #![allow(dead_code)]
 
-use std::time::Instant;
 use log::debug;
+use std::time::Instant;
 
 use super::Module;
 
@@ -47,10 +47,10 @@ impl BluetoothModule {
     fn query_bluetooth_status(&mut self) {
         // Check if Bluetooth radio exists and is enabled
         // Using SetupAPI and BluetoothAPIs
-        
+
         use windows::Win32::Devices::Bluetooth::{
-            BluetoothFindFirstRadio, BluetoothFindRadioClose,
-            BluetoothIsConnectable, BLUETOOTH_FIND_RADIO_PARAMS,
+            BluetoothFindFirstRadio, BluetoothFindRadioClose, BluetoothIsConnectable,
+            BLUETOOTH_FIND_RADIO_PARAMS,
         };
         use windows::Win32::Foundation::HANDLE;
 
@@ -58,10 +58,10 @@ impl BluetoothModule {
             let params = BLUETOOTH_FIND_RADIO_PARAMS {
                 dwSize: std::mem::size_of::<BLUETOOTH_FIND_RADIO_PARAMS>() as u32,
             };
-            
+
             let mut radio_handle = HANDLE::default();
             let find_handle = BluetoothFindFirstRadio(&params, &mut radio_handle);
-            
+
             if let Ok(handle) = find_handle {
                 // Bluetooth radio found
                 if BluetoothIsConnectable(radio_handle).as_bool() {
@@ -75,7 +75,7 @@ impl BluetoothModule {
                 } else {
                     self.state = BluetoothState::Off;
                 }
-                
+
                 let _ = windows::Win32::Foundation::CloseHandle(radio_handle);
                 let _ = BluetoothFindRadioClose(handle);
             } else {
@@ -89,8 +89,8 @@ impl BluetoothModule {
         self.connected_devices.clear();
 
         use windows::Win32::Devices::Bluetooth::{
-            BluetoothFindFirstDevice, BluetoothFindNextDevice, BluetoothFindDeviceClose,
-            BLUETOOTH_DEVICE_SEARCH_PARAMS, BLUETOOTH_DEVICE_INFO,
+            BluetoothFindDeviceClose, BluetoothFindFirstDevice, BluetoothFindNextDevice,
+            BLUETOOTH_DEVICE_INFO, BLUETOOTH_DEVICE_SEARCH_PARAMS,
         };
         use windows::Win32::Foundation::BOOL;
 
@@ -139,15 +139,15 @@ impl BluetoothModule {
     /// Build the display text
     fn build_display_text(&self) -> String {
         match self.state {
-            BluetoothState::Off => "󰂲".to_string(),      // Bluetooth off icon
-            BluetoothState::On => "󰂯".to_string(),       // Bluetooth on icon
+            BluetoothState::Off => "󰂲".to_string(), // Bluetooth off icon
+            BluetoothState::On => "󰂯".to_string(),  // Bluetooth on icon
             BluetoothState::Connected => {
                 if self.connected_devices.len() == 1 {
                     format!("󰂱 {}", self.connected_devices[0])
                 } else if self.connected_devices.len() > 1 {
                     format!("󰂱 {}+", self.connected_devices.len())
                 } else {
-                    "󰂱".to_string()  // Connected icon
+                    "󰂱".to_string() // Connected icon
                 }
             }
             BluetoothState::Unavailable => String::new(),

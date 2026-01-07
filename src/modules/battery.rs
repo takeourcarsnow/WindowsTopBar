@@ -20,7 +20,6 @@ pub struct BatteryModule {
 impl BatteryModule {
     pub fn new() -> Self {
         let module = Self {
-
             cached_text: String::new(),
             battery_percent: 100,
             is_charging: false,
@@ -50,7 +49,7 @@ impl BatteryModule {
                     // Charging status
                     // BatteryFlag: 8 = charging
                     self.is_charging = (status.BatteryFlag & 8) != 0;
-                    
+
                     // AC power status (1 = plugged in)
                     self.is_plugged_in = status.ACLineStatus == 1;
 
@@ -98,13 +97,13 @@ impl BatteryModule {
     /// Get appropriate battery icon based on level
     fn get_battery_icon(&self) -> &'static str {
         if self.is_plugged_in && !self.is_charging {
-            "🔌"  // Plugged in but not charging (full)
+            "🔌" // Plugged in but not charging (full)
         } else if self.is_charging {
-            "⚡"  // Charging
+            "⚡" // Charging
         } else if self.battery_percent >= 30 {
-            "🔋"  // Good level
+            "🔋" // Good level
         } else {
-            "🪫"  // Low or critical
+            "🪫" // Low or critical
         }
     }
 
@@ -195,7 +194,10 @@ impl Module for BatteryModule {
 
         if let Some(secs) = self.seconds_remaining {
             if !self.is_charging {
-                tooltip.push_str(&format!("\nTime remaining: {}", format_duration(secs as u64)));
+                tooltip.push_str(&format!(
+                    "\nTime remaining: {}",
+                    format_duration(secs as u64)
+                ));
             }
         }
 

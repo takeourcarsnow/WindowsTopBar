@@ -1,5 +1,5 @@
 //! Icon system for TopBar
-//! 
+//!
 //! Provides icons using Segoe Fluent Icons font (Windows 11)
 //! and Unicode symbols as fallback.
 
@@ -17,23 +17,23 @@ impl Icons {
     /// Uses modern Unicode symbols optimized for Windows 11 Segoe UI
     pub fn new() -> Self {
         let mut icons = HashMap::new();
-        
+
         // Menu icons - clean modern style
         icons.insert("menu".to_string(), "☰".to_string());
-        icons.insert("search".to_string(), "⌕".to_string());  // Cleaner search icon
+        icons.insert("search".to_string(), "⌕".to_string()); // Cleaner search icon
         icons.insert("settings".to_string(), "⚙".to_string());
         icons.insert("close".to_string(), "✕".to_string());
-        icons.insert("more".to_string(), "⋯".to_string());  // Three dots horizontal
-        icons.insert("dots_vertical".to_string(), "⋮".to_string());  // Three dots vertical
-        
+        icons.insert("more".to_string(), "⋯".to_string()); // Three dots horizontal
+        icons.insert("dots_vertical".to_string(), "⋮".to_string()); // Three dots vertical
+
         // System icons - modern power symbols
         icons.insert("power".to_string(), "⏻".to_string());
-        icons.insert("restart".to_string(), "⟳".to_string());  // Better rotation arrow
+        icons.insert("restart".to_string(), "⟳".to_string()); // Better rotation arrow
         icons.insert("sleep".to_string(), "☾".to_string());
         icons.insert("lock".to_string(), "🔒".to_string());
-        icons.insert("user".to_string(), "⚇".to_string());  // Simpler user icon
-        icons.insert("signout".to_string(), "⎋".to_string());  // Escape symbol
-        
+        icons.insert("user".to_string(), "⚇".to_string()); // Simpler user icon
+        icons.insert("signout".to_string(), "⎋".to_string()); // Escape symbol
+
         // Battery icons - consistent style
         icons.insert("battery".to_string(), "🔋".to_string());
         icons.insert("battery_full".to_string(), "🔋".to_string());
@@ -41,17 +41,17 @@ impl Icons {
         icons.insert("battery_low".to_string(), "🪫".to_string());
         icons.insert("battery_empty".to_string(), "🪫".to_string());
         icons.insert("battery_charging".to_string(), "⚡".to_string());
-        icons.insert("power_plug".to_string(), "⏚".to_string());  // AC power symbol
-        
+        icons.insert("power_plug".to_string(), "⏚".to_string()); // AC power symbol
+
         // Network icons - refined
         icons.insert("wifi".to_string(), "📶".to_string());
         icons.insert("wifi_off".to_string(), "📵".to_string());
         icons.insert("wifi_weak".to_string(), "📶".to_string());
-        icons.insert("ethernet".to_string(), "⌁".to_string());  // Cleaner network
+        icons.insert("ethernet".to_string(), "⌁".to_string()); // Cleaner network
         icons.insert("globe".to_string(), "🌐".to_string());
         icons.insert("airplane".to_string(), "✈".to_string());
         icons.insert("vpn".to_string(), "🔐".to_string());
-        
+
         // Volume icons - clean audio symbols
         icons.insert("volume_high".to_string(), "🔊".to_string());
         icons.insert("volume_medium".to_string(), "🔉".to_string());
@@ -59,17 +59,17 @@ impl Icons {
         icons.insert("volume_mute".to_string(), "🔇".to_string());
         icons.insert("headphones".to_string(), "🎧".to_string());
         icons.insert("speaker".to_string(), "🔈".to_string());
-        
+
         // Media icons - refined playback controls
         icons.insert("play".to_string(), "▶".to_string());
         icons.insert("pause".to_string(), "⏸".to_string());
         icons.insert("stop".to_string(), "⏹".to_string());
         icons.insert("previous".to_string(), "⏮".to_string());
         icons.insert("next".to_string(), "⏭".to_string());
-        icons.insert("music".to_string(), "♪".to_string());  // Cleaner music note
+        icons.insert("music".to_string(), "♪".to_string()); // Cleaner music note
         icons.insert("shuffle".to_string(), "⤮".to_string());
         icons.insert("repeat".to_string(), "⟲".to_string());
-        
+
         // Weather icons - cleaner symbols
         icons.insert("sun".to_string(), "☀".to_string());
         icons.insert("cloud".to_string(), "☁".to_string());
@@ -81,16 +81,16 @@ impl Icons {
         icons.insert("temperature".to_string(), "🌡".to_string());
         icons.insert("wind".to_string(), "💨".to_string());
         icons.insert("moon".to_string(), "🌙".to_string());
-        
+
         // Status icons - modern notification style
-        icons.insert("info".to_string(), "ⓘ".to_string());  // Circled i
+        icons.insert("info".to_string(), "ⓘ".to_string()); // Circled i
         icons.insert("warning".to_string(), "⚠".to_string());
-        icons.insert("error".to_string(), "✖".to_string());  // Cleaner X
+        icons.insert("error".to_string(), "✖".to_string()); // Cleaner X
         icons.insert("success".to_string(), "✓".to_string());
         icons.insert("notification".to_string(), "🔔".to_string());
         icons.insert("notification_off".to_string(), "🔕".to_string());
-        icons.insert("dot".to_string(), "●".to_string());  // Filled circle indicator
-        
+        icons.insert("dot".to_string(), "●".to_string()); // Filled circle indicator
+
         // Arrow icons - modern chevrons
         icons.insert("arrow_up".to_string(), "↑".to_string());
         icons.insert("arrow_down".to_string(), "↓".to_string());
@@ -99,28 +99,28 @@ impl Icons {
         icons.insert("chevron_down".to_string(), "⌄".to_string());
         icons.insert("chevron_right".to_string(), "›".to_string());
         icons.insert("chevron_up".to_string(), "⌃".to_string());
-        icons.insert("expand".to_string(), "▾".to_string());  // Down pointing triangle
-        
+        icons.insert("expand".to_string(), "▾".to_string()); // Down pointing triangle
+
         // Misc icons - refined system icons
         icons.insert("calendar".to_string(), "📅".to_string());
-        icons.insert("clock".to_string(), "◷".to_string());  // Cleaner clock
+        icons.insert("clock".to_string(), "◷".to_string()); // Cleaner clock
         icons.insert("folder".to_string(), "📁".to_string());
         icons.insert("file".to_string(), "📄".to_string());
-        icons.insert("app".to_string(), "▣".to_string());  // Square with inner square
-        icons.insert("window".to_string(), "⧉".to_string());  // Window icon
+        icons.insert("app".to_string(), "▣".to_string()); // Square with inner square
+        icons.insert("window".to_string(), "⧉".to_string()); // Window icon
         icons.insert("maximize".to_string(), "⬜".to_string());
-        icons.insert("minimize".to_string(), "▬".to_string());  // Horizontal bar
-        icons.insert("cpu".to_string(), "⬡".to_string());  // Hexagon
-        icons.insert("memory".to_string(), "⬢".to_string());  // Filled hexagon
-        icons.insert("disk".to_string(), "⛃".to_string());  // Storage symbol
-        icons.insert("gpu".to_string(), "◈".to_string());  // Diamond with dot - cleaner
-        icons.insert("bluetooth".to_string(), "ᛒ".to_string());  // Bluetooth rune symbol
+        icons.insert("minimize".to_string(), "▬".to_string()); // Horizontal bar
+        icons.insert("cpu".to_string(), "⬡".to_string()); // Hexagon
+        icons.insert("memory".to_string(), "⬢".to_string()); // Filled hexagon
+        icons.insert("disk".to_string(), "⛃".to_string()); // Storage symbol
+        icons.insert("gpu".to_string(), "◈".to_string()); // Diamond with dot - cleaner
+        icons.insert("bluetooth".to_string(), "ᛒ".to_string()); // Bluetooth rune symbol
         icons.insert("bluetooth_on".to_string(), "ᛒ".to_string());
         icons.insert("bluetooth_off".to_string(), "ᛒ".to_string());
         icons.insert("keyboard".to_string(), "⌨".to_string());
-        icons.insert("uptime".to_string(), "⏱".to_string());  // Stopwatch
-        icons.insert("separator".to_string(), "│".to_string());  // Vertical line separator
-        
+        icons.insert("uptime".to_string(), "⏱".to_string()); // Stopwatch
+        icons.insert("separator".to_string(), "│".to_string()); // Vertical line separator
+
         Self { icons }
     }
 
@@ -161,7 +161,7 @@ pub mod fluent {
     pub const WIFI_OFF: char = '\u{F384}';
     pub const ETHERNET: char = '\u{E839}';
     pub const AIRPLANE: char = '\u{E709}';
-    
+
     pub const BATTERY_0: char = '\u{E850}';
     pub const BATTERY_1: char = '\u{E851}';
     pub const BATTERY_2: char = '\u{E852}';
@@ -175,45 +175,45 @@ pub mod fluent {
     pub const BATTERY_10: char = '\u{E83F}';
     pub const BATTERY_CHARGING: char = '\u{E83E}';
     pub const BATTERY_SAVER: char = '\u{E853}';
-    
+
     pub const VOLUME_0: char = '\u{E992}';
     pub const VOLUME_1: char = '\u{E993}';
     pub const VOLUME_2: char = '\u{E994}';
     pub const VOLUME_3: char = '\u{E995}';
     pub const VOLUME_MUTE: char = '\u{E74F}';
-    
+
     pub const BRIGHTNESS: char = '\u{E706}';
     pub const BLUETOOTH: char = '\u{E702}';
-    
+
     pub const SETTINGS: char = '\u{E713}';
     pub const SEARCH: char = '\u{E721}';
     pub const POWER: char = '\u{E7E8}';
     pub const LOCK: char = '\u{E72E}';
     pub const SIGNOUT: char = '\u{F3B1}';
-    
+
     pub const PLAY: char = '\u{E768}';
     pub const PAUSE: char = '\u{E769}';
     pub const STOP: char = '\u{E71A}';
     pub const PREVIOUS: char = '\u{E892}';
     pub const NEXT: char = '\u{E893}';
-    
+
     pub const CHEVRON_DOWN: char = '\u{E70D}';
     pub const CHEVRON_UP: char = '\u{E70E}';
     pub const CHEVRON_LEFT: char = '\u{E76B}';
     pub const CHEVRON_RIGHT: char = '\u{E76C}';
-    
+
     pub const CHECK: char = '\u{E73E}';
     pub const CLOSE: char = '\u{E711}';
     pub const MORE: char = '\u{E712}';
-    
+
     pub const INFO: char = '\u{E946}';
     pub const WARNING: char = '\u{E7BA}';
     pub const ERROR: char = '\u{E783}';
-    
+
     pub const CALENDAR: char = '\u{E787}';
     pub const CLOCK: char = '\u{E823}';
     pub const NOTIFICATION: char = '\u{E7E7}';
-    
+
     pub const WINDOW: char = '\u{E737}';
     pub const MAXIMIZE: char = '\u{E739}';
     pub const MINIMIZE: char = '\u{E738}';
@@ -225,7 +225,7 @@ pub fn battery_icon_for_percent(percent: u32, is_charging: bool) -> char {
     if is_charging {
         return fluent::BATTERY_CHARGING;
     }
-    
+
     match percent {
         0..=5 => fluent::BATTERY_0,
         6..=15 => fluent::BATTERY_1,
@@ -246,7 +246,7 @@ pub fn volume_icon_for_level(level: u32, is_muted: bool) -> char {
     if is_muted || level == 0 {
         return fluent::VOLUME_MUTE;
     }
-    
+
     match level {
         1..=33 => fluent::VOLUME_1,
         34..=66 => fluent::VOLUME_2,
@@ -259,7 +259,7 @@ pub fn wifi_icon_for_strength(_strength: u32, is_connected: bool) -> char {
     if !is_connected {
         return fluent::WIFI_OFF;
     }
-    
+
     // Could return different icons based on strength
     fluent::WIFI
 }
