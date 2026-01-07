@@ -966,6 +966,7 @@ const GPU_SHOW_USAGE: u32 = 2601;
 const GPU_SHOW_GRAPH: u32 = 2604;
 const MENU_SETTINGS: u32 = 1200;
 const MENU_RELOAD: u32 = 1201;
+const MENU_RESET: u32 = 1202;
 const MENU_EXIT: u32 = 1999;
 
 /// Show the context menu
@@ -1071,6 +1072,7 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         // Settings and exit
         append_menu_item(menu, MENU_SETTINGS, "Open Config File", false);
         append_menu_item(menu, MENU_RELOAD, "Reload Config", false);
+        append_menu_item(menu, MENU_RESET, "Reset to Defaults", false);
 
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
         append_menu_item(menu, MENU_EXIT, "Exit TopBar", false);
@@ -1129,6 +1131,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         MENU_SHOW_WEATHER => toggle_module(hwnd, "weather"),
         MENU_SETTINGS => open_config_file(),
         MENU_RELOAD => reload_config(hwnd),
+        MENU_RESET => reset_config(hwnd),
         MENU_EXIT => unsafe {
             let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
         },
@@ -1389,6 +1392,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         APP_ABOUT => show_about_dialog(),
         APP_SETTINGS => open_config_file(),
         APP_RELOAD => reload_config(hwnd),
+        APP_RESET => reset_config(hwnd),
         APP_EXIT => unsafe {
             let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
         },
@@ -1580,6 +1584,36 @@ fn reload_config(hwnd: HWND) {
     }
 }
 
+/// Reset configuration to defaults (with confirmation)
+fn reset_config(hwnd: HWND) {
+    use crate::config::Config;
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_YESNO, IDYES};
+
+    unsafe {
+        let title: Vec<u16> = "Reset Settings".encode_utf16().chain(std::iter::once(0)).collect();
+        let msg: Vec<u16> = "Reset all settings to defaults? This will overwrite your config file.".encode_utf16().chain(std::iter::once(0)).collect();
+
+        let resp = MessageBoxW(None, PCWSTR(msg.as_ptr()), PCWSTR(title.as_ptr()), MB_YESNO | MB_ICONWARNING);
+        if resp.0 == IDYES.0 {
+            let cfg = Config::default();
+            match cfg.save() {
+                Ok(_) => {
+                    if let Some(state) = get_window_state() {
+                        state.write().config = Arc::new(cfg);
+                        info!("Configuration reset to defaults");
+                        let _ = InvalidateRect(hwnd, None, true);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to save default config: {}", e);
+                }
+            }
+        } else {
+            info!("Reset to defaults cancelled by user");
+        }
+    }
+}
+
 /// Handle module click actions - show in-app configuration dropdowns
 fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
     info!("Module clicked: {}", module_id);
@@ -1673,6 +1707,7 @@ const CLOCK_CENTER: u32 = 2005;
 const APP_ABOUT: u32 = 2501;
 const APP_SETTINGS: u32 = 2502;
 const APP_RELOAD: u32 = 2503;
+const APP_RESET: u32 = 2505;
 const APP_EXIT: u32 = 2504;
 
 fn show_clock_menu(hwnd: HWND, x: i32, y: i32) {
@@ -2028,6 +2063,7 @@ fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
         append_menu_item(menu, APP_SETTINGS, "Open Config File", false);
         append_menu_item(menu, APP_RELOAD, "Reload Config", false);
+        append_menu_item(menu, APP_RESET, "Reset to Defaults", false);
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
         append_menu_item(menu, APP_EXIT, "Exit TopBar", false);
 
