@@ -385,7 +385,9 @@ impl Renderer {
                                 format!("{} --", icon)
                             });
                         if !battery_text.is_empty() {
-                            let min_width = self.scale(70);
+                            // Dynamically calculate width based on actual display text
+                            let (text_width, _) = self.measure_text(hdc, &battery_text);
+                            let min_width = text_width + item_padding * 2;
                             x -= min_width;
                             let battery_rect = self.draw_module_text_fixed(
                                 hdc,
@@ -408,7 +410,9 @@ impl Renderer {
                             .get("volume")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| self.icons.get("volume_high"));
-                        let min_width = self.scale(68);
+                        // Dynamically calculate width based on actual display text
+                        let (text_width, _) = self.measure_text(hdc, &volume_text);
+                        let min_width = text_width + item_padding * 2;
                         x -= min_width;
                         let volume_rect = self.draw_module_text_fixed(
                             hdc,
@@ -445,22 +449,19 @@ impl Renderer {
                             // Switch back to default font for measuring text with speed numbers
                             let _ = SelectObject(hdc, old_font);
 
-                            // Reserve a fixed minimum width for the numeric speed portion to prevent layout shifting
-                            let sample = format!("{} 000.0↓/000.0↑", "\u{E839}"); // Ethernet icon as sample
-                            let (sample_width, _) = self.measure_text(hdc, &sample);
-                            let min_width = sample_width + item_padding * 2;
-
-                            x -= min_width;
+                            // Dynamically calculate width based on actual display text
                             let (text_width, text_height) = self.measure_text(hdc, &network_text);
-                            let width = (text_width + item_padding * 2).max(min_width);
+                            let width = text_width + item_padding * 2;
                             let height = text_height + item_padding + 2;
                             let y = (bar_rect.height - height) / 2;
+
+                            x -= width;
 
                             // Switch back to Fluent font for drawing the icon
                             let _ = SelectObject(hdc, net_font);
                             SetTextColor(hdc, theme.text_primary.colorref());
                             let text_y = (bar_rect.height - text_height) / 2;
-                            // Center text within the fixed width
+                            // Center text within the calculated width
                             let text_x = x + (width - text_width) / 2;
                             self.draw_text(hdc, text_x, text_y, &network_text);
 
