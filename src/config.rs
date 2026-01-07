@@ -224,6 +224,8 @@ pub struct ModulesConfig {
     pub bluetooth: BluetoothConfig,
     /// Disk module settings
     pub disk: DiskConfig,
+    /// Night Light module settings
+    pub night_light: NightLightConfig,
     /// Enabled modules in order (left side)
     pub left_modules: Vec<String>,
     /// Enabled modules in order (center)
@@ -248,6 +250,7 @@ impl Default for ModulesConfig {
             uptime: UptimeConfig::default(),
             bluetooth: BluetoothConfig::default(),
             disk: DiskConfig::default(),
+            night_light: NightLightConfig::default(),
             left_modules: vec!["app_menu".to_string(), "active_app".to_string()],
             center_modules: vec![],
             right_modules: vec![
@@ -259,6 +262,7 @@ impl Default for ModulesConfig {
                 "disk".to_string(),
                 "network".to_string(),
                 "bluetooth".to_string(),
+                "night_light".to_string(),
                 "volume".to_string(),
                 "battery".to_string(),
                 "clock".to_string(),
@@ -560,7 +564,7 @@ impl Default for VolumeConfig {
             show_percentage: true, // Show percentage by default
             scroll_to_change: true,
             scroll_step: 5,
-            update_interval_ms: 5000, // Volume changes less frequently
+            update_interval_ms: 500, // Check volume every 500ms for responsive updates
         }
     }
 }
@@ -774,6 +778,21 @@ impl Default for DiskConfig {
             enabled: true,
             primary_disk: "C:".to_string(),
             update_interval_ms: 5000,
+        }
+    }
+}
+
+/// Night Light module configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NightLightConfig {
+    /// Enable Night Light module
+    pub enabled: bool,
+}
+
+impl Default for NightLightConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
         }
     }
 }

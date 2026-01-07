@@ -193,17 +193,25 @@ impl Module for BluetoothModule {
     }
 
     fn display_text(&self, config: &crate::config::Config) -> String {
-        // Use standard Bluetooth glyph (Segoe Fluent) for a simple, consistent icon
-        let bt = '\u{E702}'.to_string();
+        // Use different Bluetooth icons based on state
+        // E702 = Bluetooth normal, E703 = Bluetooth connected indicator
         match self.state {
-            BluetoothState::Off => bt.clone(),
-            BluetoothState::On => bt.clone(),
+            BluetoothState::Off => {
+                // Crossed out bluetooth icon - use E705 (Bluetooth disabled) from Segoe Fluent
+                '\u{E705}'.to_string()
+            }
+            BluetoothState::On => {
+                // Normal Bluetooth icon when on but not connected
+                '\u{E702}'.to_string()
+            }
             BluetoothState::Connected => {
+                // Connected Bluetooth icon (E701 = ActionCenterNotificationBluetooth)
+                let bt_connected = '\u{E701}';
                 let count = self.connected_devices.len();
                 if count > 0 && config.modules.bluetooth.show_device_count {
-                    format!("{} {}", bt, count)
+                    format!("{} {}", bt_connected, count)
                 } else {
-                    bt.clone()
+                    bt_connected.to_string()
                 }
             }
             BluetoothState::Unavailable => String::new(),

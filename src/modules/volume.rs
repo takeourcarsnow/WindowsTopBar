@@ -180,8 +180,10 @@ impl Module for VolumeModule {
     }
 
     fn update(&mut self, config: &crate::config::Config) {
-        // Use configurable update interval from config
-        if self.last_update.elapsed().as_secs() >= (config.modules.volume.update_interval_ms / 1000) as u64 {
+        // Use configurable update interval from config (in milliseconds)
+        // Check more frequently for responsive volume changes
+        let interval_ms = config.modules.volume.update_interval_ms.max(100); // minimum 100ms
+        if self.last_update.elapsed().as_millis() >= interval_ms as u128 {
             self.force_update(config);
         }
     }

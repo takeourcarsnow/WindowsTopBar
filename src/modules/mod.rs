@@ -16,6 +16,7 @@ pub mod gpu;
 pub mod keyboard_layout;
 pub mod media;
 pub mod network;
+pub mod night_light;
 pub mod system_info;
 pub mod uptime;
 pub mod volume;
@@ -135,6 +136,7 @@ impl ModuleRegistry {
         registry.register(Box::new(uptime::UptimeModule::new()));
         registry.register(Box::new(bluetooth::BluetoothModule::new()));
         registry.register(Box::new(disk::DiskModule::new()));
+        registry.register(Box::new(night_light::NightLightModule::new()));
 
         registry
     }

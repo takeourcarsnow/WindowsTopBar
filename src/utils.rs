@@ -440,3 +440,64 @@ pub fn enable_dark_mode_for_app(enable: bool) {
         }
     }
 }
+
+/// Toggle Night Light using a PowerShell UI Automation fallback
+/// This opens the Night Light settings page and attempts to toggle the
+/// night light toggle using UI Automation (TogglePattern).
+pub fn toggle_night_light_via_powershell() -> bool {
+    use std::process::Command;
+
+    // PowerShell script: open settings and find a toggle supporting TogglePattern
+    // and whose Name contains "Night" or "Night light". If found, invoke Toggle().
+    let script = r#"
+# Try to load UI Automation assemblies
+$loaded = $false
+try { Add-Type -AssemblyName UIAutomationClient; $loaded = $true } catch {}
+if (-not $loaded) {
+    try { Add-Type -AssemblyName UIAutomationTypes; $loaded = $true } catch {}
+}
+if (-not $loaded) { exit 3 }
+
+Start-Process 'ms-settings:nightlight'
+Start-Sleep -Milliseconds 700
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsTogglePatternAvailableProperty, $true)
+$els = $root.FindAll([System.Windows.Automation.TreeScope]::Subtree, $cond)
+foreach ($el in $els) {
+    try {
+        $name = $el.Current.Name
+        if ($null -ne $name -and ($name -like '*Night*' -or $name -like '*Night light*' -or $name -like '*NightLight*')) {
+            $tp = $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            if ($tp -ne $null) {
+                $tp.Toggle()
+                exit 0
+            }
+        }
+    } catch {
+        # ignore
+    }
+}
+exit 2
+"#;
+
+    // Run PowerShell script hidden and non-interactive
+    match Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-Command")
+        .arg(script)
+        .output() {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            log::debug!("NightLight PS exit={} stdout={} stderr={}", out.status.code().unwrap_or(-1), stdout, stderr);
+            out.status.success()
+        }
+        Err(e) => {
+            log::warn!("Failed to spawn PowerShell for NightLight toggle: {}", e);
+            false
+        }
+    }
+}

@@ -46,6 +46,7 @@ pub const WM_TOPBAR_UPDATE: u32 = WM_USER + 1;
 pub const WM_TOPBAR_THEME_CHANGED: u32 = WM_USER + 2;
 pub const WM_TOPBAR_TRAY: u32 = WM_USER + 3;
 pub const WM_TOPBAR_MODULE_CLICK: u32 = WM_USER + 4;
+pub const WM_TOPBAR_NIGHTLIGHT_TOGGLED: u32 = WM_USER + 5;
 
 /// Window state for storing data accessible from window proc (thread-safe parts only)
 pub struct WindowState {
@@ -986,6 +987,27 @@ unsafe extern "system" fn window_proc(
             LRESULT(0)
         }
 
+        WM_TOPBAR_NIGHTLIGHT_TOGGLED => {
+            // Refresh night_light module state and request a redraw
+            with_renderer(|renderer| {
+                if let Some(module) = renderer.module_registry.get_mut("night_light") {
+                    if let Some(nm) = module.as_any_mut().downcast_mut::<crate::modules::night_light::NightLightModule>() {
+                        nm.refresh();
+                    }
+                }
+            });
+
+            if let Some(state) = get_window_state() {
+                state.write().needs_redraw = true;
+            }
+
+            unsafe {
+                let _ = InvalidateRect(hwnd, None, false);
+            }
+
+            LRESULT(0)
+        }
+
         WM_DESTROY => {
             info!("Window destroyed, quitting application");
             WindowManager::remove_screen_space(hwnd);
@@ -1022,6 +1044,7 @@ const MENU_SHOW_BLUETOOTH: u32 = 1010;
 const MENU_SHOW_DISK: u32 = 1011;
 const MENU_SHOW_CLIPBOARD: u32 = 1012;
 const MENU_SHOW_WEATHER: u32 = 1013;
+const MENU_SHOW_NIGHT_LIGHT: u32 = 1014;
 
 // GPU menu items
 const GPU_SHOW_USAGE: u32 = 2601;
@@ -1143,6 +1166,12 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         );
         append_menu_item(
             menu,
+            MENU_SHOW_NIGHT_LIGHT,
+            "Night Light",
+            right_modules.contains(&"night_light".to_string()),
+        );
+        append_menu_item(
+            menu,
             MENU_SHOW_DISK,
             "Disk Usage",
             right_modules.contains(&"disk".to_string()),
@@ -1216,6 +1245,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         MENU_SHOW_KEYBOARD => toggle_module(hwnd, "keyboard_layout"),
         MENU_SHOW_UPTIME => toggle_module(hwnd, "uptime"),
         MENU_SHOW_BLUETOOTH => toggle_module(hwnd, "bluetooth"),
+        MENU_SHOW_NIGHT_LIGHT => toggle_module(hwnd, "night_light"),
         MENU_SHOW_DISK => toggle_module(hwnd, "disk"),
         MENU_SHOW_WEATHER => toggle_module(hwnd, "weather"),
         MENU_SETTINGS => open_config_file(),
@@ -1567,6 +1597,7 @@ const DEFAULT_RIGHT_MODULE_ORDER: &[&str] = &[
     "disk",
     "network",
     "bluetooth",
+    "night_light",
     "volume",
     "battery",
     "uptime",
@@ -1762,6 +1793,21 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "keyboard_layout" => show_keyboard_menu(hwnd, pt.x, pt.y), // This won't be reached due to early return above
         "uptime" => show_uptime_menu(hwnd, pt.x, pt.y),
         "bluetooth" => show_bluetooth_menu(hwnd, pt.x, pt.y),
+        "night_light" => {
+            // Toggle night light directly
+            with_renderer(|renderer| {
+                if let Some(module) = renderer.module_registry.get_mut("night_light") {
+                    module.on_click();
+                }
+            });
+            // Request redraw to update the icon
+            if let Some(state) = get_window_state() {
+                state.write().needs_redraw = true;
+            }
+            unsafe {
+                let _ = InvalidateRect(hwnd, None, false);
+            }
+        }
         "disk" => show_disk_menu(hwnd, pt.x, pt.y),
         "clipboard" => show_clipboard_menu(hwnd, pt.x, pt.y),
         "app_menu" => show_app_menu(hwnd, pt.x, pt.y),

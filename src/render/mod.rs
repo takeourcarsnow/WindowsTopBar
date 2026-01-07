@@ -737,6 +737,38 @@ impl Renderer {
                         }
                     }
 
+                    "night_light" => {
+                        // Use Segoe UI Symbol for emoji rendering
+                        let nl_font = self.create_font("Segoe UI Symbol", self.scale(14), false);
+                        unsafe {
+                            let old_font = SelectObject(hdc, nl_font);
+
+                            let night_light_text = self
+                                .module_registry
+                                .get("night_light")
+                                .map(|m| m.display_text(&*config))
+                                .unwrap_or_else(|| "NL".to_string());
+                            let (text_width, _) = self.measure_text(hdc, &night_light_text);
+                            x -= text_width + item_padding * 2;
+                            let night_light_rect = self.draw_module_text(
+                                hdc,
+                                x,
+                                bar_rect.height,
+                                &night_light_text,
+                                item_padding,
+                                theme,
+                                false,
+                                None,
+                            );
+                            self.module_bounds
+                                .insert("night_light".to_string(), night_light_rect);
+                            x -= item_spacing;
+
+                            let _ = SelectObject(hdc, old_font);
+                            let _ = DeleteObject(nl_font);
+                        }
+                    }
+
                     "disk" => {
                         let disk_width = self.scale(24);
                         let disk_height = bar_rect.height - self.scale(8);
