@@ -19,6 +19,7 @@ pub mod keyboard_layout;
 pub mod uptime;
 pub mod bluetooth;
 pub mod disk;
+pub mod clipboard;
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -101,6 +102,7 @@ impl ModuleRegistry {
             order_center: vec![],
             order_right: vec![
                 "media".to_string(),
+                "clipboard".to_string(),
                 "keyboard_layout".to_string(),
                 "gpu".to_string(),
                 "system_info".to_string(),
@@ -123,6 +125,7 @@ impl ModuleRegistry {
         registry.register(Box::new(app_menu::AppMenuModule::new()));
         registry.register(Box::new(active_window::ActiveWindowModule::new()));
         registry.register(Box::new(media::MediaModule::new()));
+        registry.register(Box::new(clipboard::ClipboardModule::new()));
         
         // Register new modules
         registry.register(Box::new(gpu::GpuModule::new()));

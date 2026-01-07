@@ -38,6 +38,9 @@ windows = { version = "0.58", features = [
     "Win32_Media_Audio_Endpoints",
 ]}
 
+# Clipboard handling
+arboard = "2"
+
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
 

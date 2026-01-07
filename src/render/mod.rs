@@ -418,6 +418,21 @@ impl Renderer {
                         }
                     }
 
+                    "clipboard" => {
+                        // Render clipboard module (shows latest entry or icon)
+                        let clipboard_text = self.module_registry
+                            .get("clipboard")
+                            .map(|m| m.display_text(&*config))
+                            .unwrap_or_else(|| "📋".to_string());
+                        let (text_width, _) = self.measure_text(hdc, &clipboard_text);
+                        x -= text_width + item_padding * 2;
+                        let clip_rect = self.draw_module_text(
+                            hdc, x, bar_rect.height, &clipboard_text, item_padding, theme, false
+                        );
+                        self.module_bounds.insert("clipboard".to_string(), clip_rect);
+                        x -= item_spacing;
+                    }
+
                     "gpu" => {
                         let show_graph = config.modules.gpu.show_graph;
                         if show_graph {

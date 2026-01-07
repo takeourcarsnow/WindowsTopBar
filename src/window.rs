@@ -856,6 +856,7 @@ const MENU_SHOW_KEYBOARD: u32 = 1008;
 const MENU_SHOW_UPTIME: u32 = 1009;
 const MENU_SHOW_BLUETOOTH: u32 = 1010;
 const MENU_SHOW_DISK: u32 = 1011;
+const MENU_SHOW_CLIPBOARD: u32 = 1012;
 
 // GPU menu items
 const GPU_SHOW_USAGE: u32 = 2601;
@@ -888,6 +889,7 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
         append_menu_item(menu, MENU_SHOW_NETWORK, "Network", right_modules.contains(&"network".to_string()));
         append_menu_item(menu, MENU_SHOW_SYSINFO, "System Info", right_modules.contains(&"system_info".to_string()));
         append_menu_item(menu, MENU_SHOW_MEDIA, "Media Controls", right_modules.contains(&"media".to_string()));
+        append_menu_item(menu, MENU_SHOW_CLIPBOARD, "Clipboard", right_modules.contains(&"clipboard".to_string()));
         append_menu_item(menu, MENU_SHOW_GPU, "GPU Usage", right_modules.contains(&"gpu".to_string()));
         append_menu_item(menu, MENU_SHOW_KEYBOARD, "Keyboard Layout", right_modules.contains(&"keyboard_layout".to_string()));
         append_menu_item(menu, MENU_SHOW_UPTIME, "System Uptime", right_modules.contains(&"uptime".to_string()));
@@ -944,6 +946,7 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         MENU_SHOW_NETWORK => toggle_module(hwnd, "network"),
         MENU_SHOW_SYSINFO => toggle_module(hwnd, "system_info"),
         MENU_SHOW_MEDIA => toggle_module(hwnd, "media"),
+        MENU_SHOW_CLIPBOARD => toggle_module(hwnd, "clipboard"),
         MENU_SHOW_GPU => toggle_module(hwnd, "gpu"),
         MENU_SHOW_KEYBOARD => toggle_module(hwnd, "keyboard_layout"),
         MENU_SHOW_UPTIME => toggle_module(hwnd, "uptime"),
@@ -1018,6 +1021,9 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                 if new_config.modules.center_modules.iter().any(|m| m == "clock") {
                     // Remove from center, add back to right at default position
                     new_config.modules.center_modules.retain(|m| m != "clock");
+                    // Ensure the boolean reflects removal from center
+                    new_config.modules.clock.center = false;
+
                     if !new_config.modules.right_modules.iter().any(|m| m == "clock") {
                         let default_order = vec!["media", "keyboard_layout", "gpu", "system_info", "disk", "network", "bluetooth", "volume", "battery", "uptime", "clock"];
                         let insert_pos = default_order.iter()
@@ -1039,6 +1045,8 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                     // Add to center and remove from right
                     new_config.modules.center_modules.push("clock".to_string());
                     new_config.modules.right_modules.retain(|m| m != "clock");
+                    // Ensure the boolean reflects that clock is centered
+                    new_config.modules.clock.center = true;
                 }
 
                 if let Err(e) = new_config.save() {
@@ -1075,6 +1083,54 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
                     }
                     state.write().config = Arc::new(new_config);
                     unsafe { let _ = InvalidateRect(hwnd, None, true); }
+                }
+            }
+        },
+
+        // Clipboard history selection range
+        cmd if (cmd >= CLIPBOARD_BASE && cmd < CLIPBOARD_BASE + 100) => {
+            let idx = (cmd - CLIPBOARD_BASE) as usize;
+            let mut selected_text: Option<String> = None;
+
+            // Use renderer to access clipboard module's history and set clipboard
+            with_renderer(|renderer| {
+                if let Some(module) = renderer.module_registry.get("clipboard") {
+                    if let Some(cm) = module.as_any().downcast_ref::<crate::modules::clipboard::ClipboardModule>() {
+                        let hist = cm.get_history();
+                        if idx < hist.len() {
+                            let text = hist[idx].clone();
+                            // Set clipboard using module helper
+                            cm.set_clipboard_text(&text);
+                            selected_text = Some(text);
+                        }
+                    }
+                }
+            });
+
+            // If we set clipboard, simulate Ctrl+V to paste
+            if selected_text.is_some() {
+                use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, VIRTUAL_KEY, VK_CONTROL, KEYEVENTF_KEYUP};
+                let vk_v = VIRTUAL_KEY(0x56); // 'V'
+                unsafe {
+                    let mut inputs = [
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 { ki: KEYBDINPUT { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYBD_EVENT_FLAGS(0), time: 0, dwExtraInfo: 0 } },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 { ki: KEYBDINPUT { wVk: vk_v, wScan: 0, dwFlags: KEYBD_EVENT_FLAGS(0), time: 0, dwExtraInfo: 0 } },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 { ki: KEYBDINPUT { wVk: vk_v, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 { ki: KEYBDINPUT { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } },
+                        },
+                    ];
+                    SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32);
                 }
             }
         },
@@ -1149,7 +1205,7 @@ fn toggle_module(hwnd: HWND, module_id: &str) {
         } else {
             // Add it back at the appropriate position
             let default_order = vec![
-                "media", "keyboard_layout", "gpu", "system_info", "disk", 
+                "media", "clipboard", "keyboard_layout", "gpu", "system_info", "disk", 
                 "network", "bluetooth", "volume", "battery", "uptime", "clock"
             ];
             let insert_pos = default_order.iter()
@@ -1257,6 +1313,7 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "uptime" => show_uptime_menu(hwnd, pt.x, pt.y),
         "bluetooth" => show_bluetooth_menu(hwnd, pt.x, pt.y),
         "disk" => show_disk_menu(hwnd, pt.x, pt.y),
+        "clipboard" => show_clipboard_menu(hwnd, pt.x, pt.y),
         "app_menu" => show_app_menu(hwnd, pt.x, pt.y),
         _ => {
             debug!("Unhandled module click: {}", module_id);
@@ -1303,6 +1360,9 @@ const DISK_SHOW_PERCENTAGE: u32 = 3001;
 const DISK_SHOW_ACTIVITY: u32 = 3002;
 // Disk selection base (dynamic entries)
 const DISK_SELECT_BASE: u32 = 3100;
+
+// Clipboard history base (dynamic entries)
+const CLIPBOARD_BASE: u32 = 4000;
 
 // Clock center toggle
 const CLOCK_CENTER: u32 = 2005; 
@@ -1444,6 +1504,43 @@ fn show_disk_menu(hwnd: HWND, x: i32, y: i32) {
         DestroyMenu(menu).ok();
 
         info!("Disk menu returned cmd: {}", cmd.0);
+        if cmd.0 != 0 {
+            handle_menu_command(hwnd, cmd.0 as u32);
+        }
+    }
+}
+
+fn show_clipboard_menu(hwnd: HWND, x: i32, y: i32) {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() { return; }
+
+        // Gather latest clipboard history from the module
+        let mut history: Vec<String> = Vec::new();
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get("clipboard") {
+                if let Some(cm) = module.as_any().downcast_ref::<crate::modules::clipboard::ClipboardModule>() {
+                    history = cm.get_history();
+                }
+            }
+        });
+
+        if history.is_empty() {
+            append_menu_item(menu, CLIPBOARD_BASE, "No clipboard history", false);
+        } else {
+            for (i, entry) in history.iter().enumerate() {
+                if i >= 10 { break; }
+                let label = crate::utils::truncate_string(entry, 40);
+                let id = CLIPBOARD_BASE + i as u32;
+                append_menu_item(menu, id, &label, i == 0);
+            }
+        }
+
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
+        DestroyMenu(menu).ok();
+
+        info!("Clipboard menu returned cmd: {}", cmd.0);
         if cmd.0 != 0 {
             handle_menu_command(hwnd, cmd.0 as u32);
         }
