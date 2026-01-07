@@ -33,17 +33,17 @@ impl WeatherCondition {
     /// Get icon for weather condition
     pub fn icon(&self) -> &'static str {
         match self {
-            Self::Clear => "☀️",
+            Self::Clear => "☀",
             Self::PartlyCloudy => "⛅",
-            Self::Cloudy => "☁️",
-            Self::Overcast => "☁️",
-            Self::Rain => "🌧️",
-            Self::HeavyRain => "🌧️",
-            Self::Thunderstorm => "⛈️",
-            Self::Snow => "❄️",
-            Self::Fog => "🌫️",
+            Self::Cloudy => "☁",
+            Self::Overcast => "☁",
+            Self::Rain => "🌧",
+            Self::HeavyRain => "🌧",
+            Self::Thunderstorm => "⛈",
+            Self::Snow => "❄",
+            Self::Fog => "🌫",
             Self::Windy => "💨",
-            Self::Unknown => "🌡️",
+            Self::Unknown => "🌡",
         }
     }
 

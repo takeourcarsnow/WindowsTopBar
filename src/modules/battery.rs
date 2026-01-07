@@ -82,7 +82,7 @@ impl BatteryModule {
 
         if config.modules.battery.show_time_remaining {
             if let Some(secs) = self.seconds_remaining {
-                text.push_str(&format!(" ({})", format_duration(secs as u64)));
+                text.push_str(&format!(" {}", format_duration(secs as u64)));
             }
         }
 
@@ -151,7 +151,7 @@ impl Module for BatteryModule {
 
         if config.modules.battery.show_time_remaining {
             if let Some(secs) = self.seconds_remaining {
-                text.push_str(&format!(" ({})", format_duration(secs as u64)));
+                text.push_str(&format!(" {}", format_duration(secs as u64)));
             }
         }
 

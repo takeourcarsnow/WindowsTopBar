@@ -281,7 +281,7 @@ impl Default for SystemInfoConfig {
             show_disk: false,
             show_gpu: false,
             update_interval_ms: 1500, // Slightly faster updates for responsiveness
-            show_graph: false,
+            show_graph: true, // Show vertical bars instead of percentages
         }
     }
 }
@@ -539,7 +539,7 @@ impl Default for GpuConfig {
         Self {
             enabled: true,
             show_usage: true,
-            show_graph: false,
+            show_graph: true, // Show vertical bars instead of percentage
             update_interval_ms: 1500, // More responsive updates
         }
     }

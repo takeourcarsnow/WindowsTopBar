@@ -195,10 +195,7 @@ impl Module for KeyboardLayoutModule {
     }
 
     fn on_right_click(&mut self) {
-        // Open language settings
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", "ms-settings:keyboard"])
-            .spawn();
+        // No action on right click
     }
 
     fn tooltip(&self) -> Option<String> {

@@ -187,6 +187,16 @@ impl Module for SystemInfoModule {
     }
 
     fn graph_values(&self) -> Option<Vec<f32>> {
-        Some(self.cpu_history())
+        let mut combined = Vec::new();
+        let cpu_hist = self.cpu_history();
+        let mem_hist = self.memory_history();
+        
+        // Interleave CPU and RAM values
+        for i in 0..cpu_hist.len().min(mem_hist.len()) {
+            combined.push(cpu_hist[i]);
+            combined.push(mem_hist[i]);
+        }
+        
+        Some(combined)
     }
 }

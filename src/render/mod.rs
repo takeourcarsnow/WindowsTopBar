@@ -435,35 +435,34 @@ impl Renderer {
                                             let len = values.len() as i32;
                                             let inner_w = rect.width - item_padding * 2;
                                             let inner_h = rect.height - 4;
-                                            let step = inner_w as f32 / (len.max(1) as f32);
+                                            let bar_width = inner_w / len.max(1);
                                             let mut x_pos = rect.x + item_padding;
 
-                                            let mut points: Vec<(i32, i32)> = Vec::new();
-                                            for v in values.iter() {
+                                            for (i, v) in values.iter().enumerate() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let y = rect.y
-                                                    + 2
-                                                    + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                points.push((x_pos, y));
-                                                x_pos += step as i32;
-                                            }
+                                                let bar_height = (clamped * inner_h as f32) as i32;
+                                                let bar_y = rect.y + 2 + (inner_h - bar_height);
 
-                                            let pen =
-                                                CreatePen(PS_SOLID, 2, theme.cpu_normal.colorref());
-                                            let old_pen = SelectObject(hdc, pen);
-                                            if let Some((sx, sy)) = points.first() {
-                                                let _ = MoveToEx(
-                                                    hdc,
-                                                    *sx,
-                                                    *sy,
-                                                    Some(std::ptr::null_mut()),
-                                                );
-                                                for (px, py) in points.iter().skip(1) {
-                                                    let _ = LineTo(hdc, *px, *py);
+                                                unsafe {
+                                                    // Alternate colors: even indices = CPU (cpu_normal), odd = RAM (memory_normal)
+                                                    let color = if i % 2 == 0 {
+                                                        theme.cpu_normal.colorref()
+                                                    } else {
+                                                        theme.memory_normal.colorref()
+                                                    };
+                                                    let bar_brush = CreateSolidBrush(color);
+                                                    let bar_rect = windows::Win32::Foundation::RECT {
+                                                        left: x_pos,
+                                                        top: bar_y,
+                                                        right: x_pos + bar_width - 1,
+                                                        bottom: bar_y + bar_height,
+                                                    };
+                                                    FillRect(hdc, &bar_rect, bar_brush);
+                                                    let _ = DeleteObject(bar_brush);
                                                 }
+
+                                                x_pos += bar_width;
                                             }
-                                            let _ = SelectObject(hdc, old_pen);
-                                            let _ = DeleteObject(pen);
                                         }
                                     }
                                 }
@@ -588,37 +587,28 @@ impl Renderer {
                                             let len = values.len() as i32;
                                             let inner_w = rect.width - item_padding * 2;
                                             let inner_h = rect.height - 4;
-                                            let step = inner_w as f32 / (len.max(1) as f32);
+                                            let bar_width = inner_w / len.max(1);
                                             let mut x_pos = rect.x + item_padding;
 
-                                            // Normalize values to 0..1 based on 0..100
-                                            let mut points: Vec<(i32, i32)> = Vec::new();
                                             for v in values.iter() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let y = rect.y
-                                                    + 2
-                                                    + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                points.push((x_pos, y));
-                                                x_pos += step as i32;
-                                            }
+                                                let bar_height = (clamped * inner_h as f32) as i32;
+                                                let bar_y = rect.y + 2 + (inner_h - bar_height);
 
-                                            let pen =
-                                                CreatePen(PS_SOLID, 2, theme.accent.colorref());
-                                            let old_pen = SelectObject(hdc, pen);
-                                            // Move to first
-                                            if let Some((sx, sy)) = points.first() {
-                                                let _ = MoveToEx(
-                                                    hdc,
-                                                    *sx,
-                                                    *sy,
-                                                    Some(std::ptr::null_mut()),
-                                                );
-                                                for (px, py) in points.iter().skip(1) {
-                                                    let _ = LineTo(hdc, *px, *py);
+                                                unsafe {
+                                                    let bar_brush = CreateSolidBrush(theme.accent.colorref());
+                                                    let bar_rect = windows::Win32::Foundation::RECT {
+                                                        left: x_pos,
+                                                        top: bar_y,
+                                                        right: x_pos + bar_width - 1,
+                                                        bottom: bar_y + bar_height,
+                                                    };
+                                                    FillRect(hdc, &bar_rect, bar_brush);
+                                                    let _ = DeleteObject(bar_brush);
                                                 }
+
+                                                x_pos += bar_width;
                                             }
-                                            let _ = SelectObject(hdc, old_pen);
-                                            let _ = DeleteObject(pen);
                                         }
                                     }
                                 }
@@ -715,23 +705,106 @@ impl Renderer {
                     }
 
                     "disk" => {
-                        let disk_text = self
-                            .module_registry
-                            .get("disk")
-                            .map(|m| m.display_text(&*config))
-                            .unwrap_or_else(|| self.icons.get("disk"));
-                        let (text_width, _) = self.measure_text(hdc, &disk_text);
-                        x -= text_width + item_padding * 2;
-                        let disk_rect = self.draw_module_text(
-                            hdc,
+                        let disk_width = self.scale(24);
+                        let disk_height = bar_rect.height - self.scale(8);
+                        x -= disk_width + item_padding * 2;
+
+                        let rect = Rect::new(
                             x,
-                            bar_rect.height,
-                            &disk_text,
-                            item_padding,
-                            theme,
-                            false,
+                            (bar_rect.height - disk_height) / 2,
+                            disk_width + item_padding * 2,
+                            disk_height,
                         );
-                        self.module_bounds.insert("disk".to_string(), disk_rect);
+                        unsafe {
+                            let bg_brush = CreateSolidBrush(theme.background_secondary.colorref());
+                            let r = windows::Win32::Foundation::RECT {
+                                left: rect.x,
+                                top: rect.y,
+                                right: rect.x + rect.width,
+                                bottom: rect.y + rect.height,
+                            };
+                            FillRect(hdc, &r, bg_brush);
+                            let _ = DeleteObject(bg_brush);
+
+                            if let Some(module) = self.module_registry.get("disk") {
+                                if let Some(disk_module) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
+                                    let usage_percent = disk_module.primary_usage_percent() as f32 / 100.0;
+                                    
+                                    // Draw pie chart
+                                    let center_x = rect.x + rect.width / 2;
+                                    let center_y = rect.y + rect.height / 2;
+                                    let radius = (rect.width.min(rect.height) / 2 - 2) as f32;
+                                    
+                                    // Draw used portion (filled arc)
+                                    if usage_percent > 0.0 {
+                                        let used_angle = (usage_percent * 360.0f32).to_radians();
+                                        let start_angle = -90.0f32.to_radians(); // Start from top
+                                        let end_angle = start_angle + used_angle;
+                                        
+                                        let steps = ((used_angle / std::f32::consts::PI * 180.0) as i32).max(8);
+                                        let angle_step = used_angle / steps as f32;
+                                        
+                                        let mut points = Vec::new();
+                                        points.push((center_x, center_y)); // Center point
+                                        
+                                        for i in 0..=steps {
+                                            let angle = start_angle + angle_step * i as f32;
+                                            let px = center_x + (angle.cos() * radius) as i32;
+                                            let py = center_y + (angle.sin() * radius) as i32;
+                                            points.push((px, py));
+                                        }
+                                        
+                                        if points.len() >= 3 {
+                                            let pie_brush = CreateSolidBrush(theme.accent.colorref());
+                                            let pie_pen = CreatePen(PS_SOLID, 1, theme.accent.colorref());
+                                            let old_pen = SelectObject(hdc, pie_pen);
+                                            let old_brush = SelectObject(hdc, pie_brush);
+                                            
+let vertices: Vec<windows::Win32::Foundation::POINT> = points.iter()
+                                            .map(|(x, y)| windows::Win32::Foundation::POINT { x: *x, y: *y })
+                                                .collect();
+                                            
+                                            let _ = Polygon(hdc, &vertices);
+                                            let _ = SelectObject(hdc, old_brush);
+                                            let _ = SelectObject(hdc, old_pen);
+                                            let _ = DeleteObject(pie_brush);
+                                            let _ = DeleteObject(pie_pen);
+                                        }
+                                    }
+                                    
+                                    // Draw remaining portion (outline)
+                                    let remaining_angle = ((1.0 - usage_percent) * 360.0f32).to_radians();
+                                    if remaining_angle > 0.0 {
+                                        let start_angle = (-90.0f32 + usage_percent * 360.0f32).to_radians();
+                                        let end_angle = start_angle + remaining_angle;
+                                        
+                                        let steps = ((remaining_angle / std::f32::consts::PI * 180.0) as i32).max(8);
+                                        let angle_step = remaining_angle / steps as f32;
+                                        
+                                        let outline_pen = CreatePen(PS_SOLID, 2, theme.text_secondary.colorref());
+                                        let old_pen = SelectObject(hdc, outline_pen);
+                                        
+                                        for i in 0..steps {
+                                            let angle1 = start_angle + angle_step * i as f32;
+                                            let angle2 = start_angle + angle_step * (i + 1) as f32;
+                                            
+                                            let x1 = center_x + (angle1.cos() * radius) as i32;
+                                            let y1 = center_y + (angle1.sin() * radius) as i32;
+                                            let x2 = center_x + (angle2.cos() * radius) as i32;
+                                            let y2 = center_y + (angle2.sin() * radius) as i32;
+                                            
+                                            let _ = MoveToEx(hdc, x1, y1, None);
+                                            let _ = LineTo(hdc, x2, y2);
+                                        }
+                                        
+                                        let _ = SelectObject(hdc, old_pen);
+                                        let _ = DeleteObject(outline_pen);
+                                    }
+                                }
+                            }
+                        }
+
+                        self.module_bounds.insert("disk".to_string(), rect);
                         x -= item_spacing;
                     }
 

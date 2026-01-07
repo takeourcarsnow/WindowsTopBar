@@ -1566,6 +1566,23 @@ fn reload_config(hwnd: HWND) {
 fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
     info!("Module clicked: {}", module_id);
 
+    // Special case: keyboard_layout should switch languages on click, not show menu
+    if module_id == "keyboard_layout" {
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get_mut(module_id) {
+                module.on_click();
+            }
+        });
+        // Request redraw to update the display
+        if let Some(state) = get_window_state() {
+            state.write().needs_redraw = true;
+        }
+        unsafe {
+            let _ = InvalidateRect(hwnd, None, false);
+        }
+        return;
+    }
+
     // Get screen position for dropdown
     let mut pt = windows::Win32::Foundation::POINT { x: click_x, y: 28 };
     unsafe {
@@ -1579,7 +1596,7 @@ fn handle_module_click(hwnd: HWND, module_id: &str, click_x: i32) {
         "network" => show_network_menu(hwnd, pt.x, pt.y),
         "system_info" => show_sysinfo_menu(hwnd, pt.x, pt.y),
         "gpu" => show_gpu_menu(hwnd, pt.x, pt.y),
-        "keyboard_layout" => show_keyboard_menu(hwnd, pt.x, pt.y),
+        "keyboard_layout" => show_keyboard_menu(hwnd, pt.x, pt.y), // This won't be reached due to early return above
         "uptime" => show_uptime_menu(hwnd, pt.x, pt.y),
         "bluetooth" => show_bluetooth_menu(hwnd, pt.x, pt.y),
         "disk" => show_disk_menu(hwnd, pt.x, pt.y),
