@@ -498,31 +498,41 @@ impl Renderer {
                                                 out
                                             };
 
-                                            let mut bar_width = inner_w / bars.len().max(1) as i32;
-                                            if bar_width < 1 {
-                                                bar_width = 1;
-                                            }
-
-                                            let mut x_pos = rect.x + item_padding;
-                                            for v in bars.iter() {
-                                                let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let bar_height = (clamped * inner_h as f32) as i32;
-                                                let bar_y = rect.y + 2 + (inner_h - bar_height);
-
-                                                unsafe {
-                                                    let color = theme.cpu_normal.colorref();
-                                                    let bar_brush = CreateSolidBrush(color);
-                                                    let bar_rect = windows::Win32::Foundation::RECT {
-                                                        left: x_pos,
-                                                        top: bar_y,
-                                                        right: x_pos + bar_width - 1,
-                                                        bottom: bar_y + bar_height,
-                                                    };
-                                                    FillRect(hdc, &bar_rect, bar_brush);
-                                                    let _ = DeleteObject(bar_brush);
+                                            // Convert values into points and draw a simple historical line (polyline)
+                                            // (keeps the downsampling logic above but replaces bar rendering with a single line)
+                                            if !bars.is_empty() {
+                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(bars.len());
+                                                let step = inner_w as f32 / bars.len() as f32;
+                                                for (i, v) in bars.iter().enumerate() {
+                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
+                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
                                                 }
 
-                                                x_pos += bar_width;
+                                                if points.len() == 1 {
+                                                    // Duplicate single point so MoveTo/LineTo draws a flat line
+                                                    points.push(points[0]);
+                                                }
+
+                                                unsafe {
+                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.cpu_normal.colorref());
+                                                    let old_pen = SelectObject(hdc, pen);
+
+                                                    let mut first = true;
+                                                    for p in &points {
+                                                        if first {
+                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
+                                                            first = false;
+                                                        } else {
+                                                            let _ = LineTo(hdc, p.x, p.y);
+                                                        }
+                                                    }
+
+                                                    let _ = SelectObject(hdc, old_pen);
+                                                    let _ = DeleteObject(pen);
+                                                }
                                             }
                                         }
                                     }
@@ -683,30 +693,39 @@ impl Renderer {
                                                 out
                                             };
 
-                                            let mut bar_width = inner_w / bars.len().max(1) as i32;
-                                            if bar_width < 1 {
-                                                bar_width = 1;
-                                            }
-
-                                            let mut x_pos = rect.x + item_padding;
-                                            for v in bars.iter() {
-                                                let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                let bar_height = (clamped * inner_h as f32) as i32;
-                                                let bar_y = rect.y + 2 + (inner_h - bar_height);
-
-                                                unsafe {
-                                                    let bar_brush = CreateSolidBrush(theme.accent.colorref());
-                                                    let bar_rect = windows::Win32::Foundation::RECT {
-                                                        left: x_pos,
-                                                        top: bar_y,
-                                                        right: x_pos + bar_width - 1,
-                                                        bottom: bar_y + bar_height,
-                                                    };
-                                                    FillRect(hdc, &bar_rect, bar_brush);
-                                                    let _ = DeleteObject(bar_brush);
+                                            // Convert values into points and draw a simple historical line (polyline)
+                                            if !bars.is_empty() {
+                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(bars.len());
+                                                let step = inner_w as f32 / bars.len() as f32;
+                                                for (i, v) in bars.iter().enumerate() {
+                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
+                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
                                                 }
 
-                                                x_pos += bar_width;
+                                                if points.len() == 1 {
+                                                    points.push(points[0]);
+                                                }
+
+                                                unsafe {
+                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.accent.colorref());
+                                                    let old_pen = SelectObject(hdc, pen);
+
+                                                    let mut first = true;
+                                                    for p in &points {
+                                                        if first {
+                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
+                                                            first = false;
+                                                        } else {
+                                                            let _ = LineTo(hdc, p.x, p.y);
+                                                        }
+                                                    }
+
+                                                    let _ = SelectObject(hdc, old_pen);
+                                                    let _ = DeleteObject(pen);
+                                                }
                                             }
                                         }
                                     }

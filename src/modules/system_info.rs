@@ -187,7 +187,7 @@ impl Module for SystemInfoModule {
     }
 
     fn graph_values(&self) -> Option<Vec<f32>> {
-        // Simplified: return the latest CPU usage as a single value so rendering always has at least one bar
-        Some(vec![self.cpu_usage])
+        // Return CPU usage history (oldest to newest) so the renderer can draw a historical graph
+        Some(self.cpu_history.iter().copied().collect())
     }
 }

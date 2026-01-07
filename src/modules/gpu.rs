@@ -428,7 +428,7 @@ impl Module for GpuModule {
     }
 
     fn graph_values(&self) -> Option<Vec<f32>> {
-        // Simplified: return the current GPU usage as a single value for robust drawing
-        Some(vec![self.gpu_info.usage])
+        // Return GPU usage history (oldest to newest) so the renderer can draw a historical graph
+        Some(self.usage_history.iter().copied().collect())
     }
 }
