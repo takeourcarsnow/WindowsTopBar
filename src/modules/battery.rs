@@ -86,10 +86,8 @@ impl BatteryModule {
             }
         }
 
-        if self.is_charging {
-            text.push_str(" ⚡");
-        }
-
+        // We already encode charging/plug state in the leading icon, so avoid
+        // duplicating the charging emoji at the end.
         text
     }
 

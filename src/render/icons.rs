@@ -45,7 +45,7 @@ impl Icons {
 
         // Network icons - refined
         icons.insert("wifi".to_string(), "📶".to_string());
-        icons.insert("wifi_off".to_string(), "📵".to_string());
+        icons.insert("wifi_off".to_string(), "�".to_string());
         icons.insert("wifi_weak".to_string(), "📶".to_string());
         icons.insert("ethernet".to_string(), "⌁".to_string()); // Cleaner network
         icons.insert("globe".to_string(), "🌐".to_string());

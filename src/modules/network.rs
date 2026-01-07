@@ -446,7 +446,8 @@ impl Module for NetworkModule {
             }
             let down_mb = (self.download_speed as f64) / 1_000_000.0;
             let up_mb = (self.upload_speed as f64) / 1_000_000.0;
-            text.push_str(&format!("{:.1}↓/{:.1}↑MB/s", down_mb, up_mb));
+            // Show numeric speeds with arrows only; units are available in the tooltip or settings
+            text.push_str(&format!("{:.1}↓/{:.1}↑", down_mb, up_mb));
         }
 
         text

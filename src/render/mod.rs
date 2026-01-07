@@ -431,7 +431,7 @@ impl Renderer {
                             .unwrap_or_else(|| self.icons.get("wifi"));
 
                         // Reserve a fixed minimum width for the numeric speed portion to prevent layout shifting
-                        let sample = format!("{} 000.0↓/000.0↑MB/s", self.icons.get("ethernet"));
+                        let sample = format!("{} 000.0↓/000.0↑", self.icons.get("ethernet"));
                         let (sample_width, _) = self.measure_text(hdc, &sample);
                         let min_width = sample_width + item_padding * 2;
 
@@ -1168,29 +1168,65 @@ impl Renderer {
         theme: &Theme,
         is_hovered: bool,
     ) -> Rect {
+        // Special-case single-glyph icons (menu, search, etc.) to render larger and centered
         let (text_width, text_height) = self.measure_text(hdc, text);
-        let width = text_width + padding * 2;
-        let height = text_height + padding + 4; // Slightly taller for better tap targets
+        let mut width = text_width + padding * 2;
+        let mut height = text_height + padding + 4; // Slightly taller for better tap targets
         let y = (bar_height - height) / 2;
 
         unsafe {
-            // Draw subtle rounded background on hover
-            if is_hovered {
-                let brush = CreateSolidBrush(theme.background_hover.colorref());
-                let rect = windows::Win32::Foundation::RECT {
-                    left: x + 2, // Slight inset for visual softness
-                    top: y + 1,
-                    right: x + width - 2,
-                    bottom: y + height - 1,
-                };
-                FillRect(hdc, &rect, brush);
-                let _ = DeleteObject(brush);
-            }
+            // If the text is a single glyph (likely an icon), draw it with a larger icon font
+            if text.chars().count() == 1 {
+                let icon_size = self.scale(16);
+                let icon_font = self.create_font("Segoe UI Symbol", icon_size + 2, false);
+                let old_font = SelectObject(hdc, icon_font);
 
-            // Draw text with proper color
-            SetTextColor(hdc, theme.text_primary.colorref());
-            let text_y = (bar_height - text_height) / 2;
-            self.draw_text(hdc, x + padding, text_y, text);
+                let (iw, ih) = self.measure_text(hdc, text);
+                width = iw + padding * 2;
+                height = ih + padding + 8; // a little extra for icons
+                let y = (bar_height - height) / 2;
+
+                // Draw subtle rounded background on hover
+                if is_hovered {
+                    let brush = CreateSolidBrush(theme.background_hover.colorref());
+                    let rect = windows::Win32::Foundation::RECT {
+                        left: x + 2,
+                        top: y + 1,
+                        right: x + width - 2,
+                        bottom: y + height - 1,
+                    };
+                    FillRect(hdc, &rect, brush);
+                    let _ = DeleteObject(brush);
+                }
+
+                // Draw icon centered horizontally within the button area
+                SetTextColor(hdc, theme.text_primary.colorref());
+                let text_x = x + (width - iw) / 2;
+                let text_y = (bar_height - ih) / 2;
+                self.draw_text(hdc, text_x, text_y, text);
+
+                // Restore and cleanup
+                let _ = SelectObject(hdc, old_font);
+                let _ = DeleteObject(icon_font);
+            } else {
+                // Draw subtle rounded background on hover
+                if is_hovered {
+                    let brush = CreateSolidBrush(theme.background_hover.colorref());
+                    let rect = windows::Win32::Foundation::RECT {
+                        left: x + 2, // Slight inset for visual softness
+                        top: y + 1,
+                        right: x + width - 2,
+                        bottom: y + height - 1,
+                    };
+                    FillRect(hdc, &rect, brush);
+                    let _ = DeleteObject(brush);
+                }
+
+                // Draw text with proper color
+                SetTextColor(hdc, theme.text_primary.colorref());
+                let text_y = (bar_height - text_height) / 2;
+                self.draw_text(hdc, x + padding, text_y, text);
+            }
         }
 
         Rect::new(x, y, width, height)

@@ -16,6 +16,7 @@ use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 static GLOBAL_INDEX: OnceCell<Arc<RwLock<Option<SearchIndex>>>> = OnceCell::new();
 static SCANNED_COUNT: AtomicUsize = AtomicUsize::new(0);
 static IS_BUILDING: AtomicBool = AtomicBool::new(false);
+static ESTIMATED_TOTAL: AtomicUsize = AtomicUsize::new(0);
 
 /// Set the global index
 pub fn set_global_index(idx: Arc<RwLock<Option<SearchIndex>>>) {
@@ -46,10 +47,23 @@ pub fn scanned_count() -> usize {
     SCANNED_COUNT.load(Ordering::Relaxed)
 }
 
+/// Estimated total (from previous builds or current scan)
+pub fn estimated_total() -> usize {
+    ESTIMATED_TOTAL.load(Ordering::Relaxed)
+}
+
+fn meta_path() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join("topbar").join("search_index_count.txt")
+}
+
 /// A simple in-memory search index built from filenames -> full paths.
+use std::collections::HashMap;
+
 pub struct SearchIndex {
     set: Set<Vec<u8>>,
     count: usize,
+    /// Map of lowercase extension -> list of full paths
+    ext_map: HashMap<String, Vec<String>>,
 }
 
 impl SearchIndex {
@@ -62,7 +76,12 @@ impl SearchIndex {
     pub fn build_with_excludes(roots: &[PathBuf], exclude_patterns: &[String]) -> Result<Self> {
         let mut keys: Vec<String> = Vec::new();
 
-        log::info!("Starting search index build...");
+        // Try load a previous estimate (best-effort) so we can show % progress
+        let estimate = if let Ok(s) = std::fs::read_to_string(meta_path()) {
+            s.trim().parse::<usize>().unwrap_or(0)
+        } else { 0 };
+        ESTIMATED_TOTAL.store(estimate, Ordering::Relaxed);
+        log::info!("Starting search index build (est={} files)...", estimate);
         SCANNED_COUNT.store(0, Ordering::Relaxed);
         IS_BUILDING.store(false, Ordering::Relaxed);
 
@@ -71,6 +90,9 @@ impl SearchIndex {
             .iter()
             .filter_map(|pattern| glob::Pattern::new(pattern).ok())
             .collect();
+
+        // Prepare extension map while scanning
+        let mut ext_map: HashMap<String, Vec<String>> = HashMap::new();
 
         for root in roots {
             log::info!("Indexing directory: {}", root.display());
@@ -88,12 +110,23 @@ impl SearchIndex {
                     SCANNED_COUNT.fetch_add(1, Ordering::Relaxed);
                     let filename = entry.file_name().to_string_lossy().to_lowercase();
                     let full = entry.path().to_string_lossy().to_string();
+                    // record key for fst
                     keys.push(format!("{}\0{}", filename, full));
+
+                    // record extension -> full path
+                    if let Some(ext_os) = entry.path().extension() {
+                        if let Some(ext) = ext_os.to_str() {
+                            let e = ext.to_lowercase();
+                            ext_map.entry(e).or_insert_with(Vec::new).push(full.clone());
+                        }
+                    }
                 }
             }
         }
 
         log::info!("Collected {} files, sorting...", keys.len());
+        // Update estimated total to the actual scanned count before building
+        ESTIMATED_TOTAL.store(keys.len(), Ordering::Relaxed);
         IS_BUILDING.store(true, Ordering::Relaxed);
         keys.sort();
 
@@ -101,10 +134,14 @@ impl SearchIndex {
         let set = Set::from_iter(keys.iter())?;
         let count = set.len();
 
+        // Persist final count for future estimates (best-effort)
+        let _ = std::fs::create_dir_all(meta_path().parent().unwrap_or(&PathBuf::from(".")));
+        let _ = std::fs::write(meta_path(), format!("{}", count));
+
         IS_BUILDING.store(false, Ordering::Relaxed);
         log::info!("Search index ready with {} files", count);
 
-        Ok(Self { set, count })
+        Ok(Self { set, count, ext_map })
     }
 
     /// Return the number of indexed entries
@@ -131,7 +168,17 @@ impl SearchIndex {
         }
         res
     }
+
+    /// Search by extension (.ext or ext). Case-insensitive. Up to `limit` results
+    pub fn search_by_extension(&self, ext: &str, limit: usize) -> Vec<String> {
+        let e = ext.trim_start_matches('.').to_lowercase();
+        if let Some(v) = self.ext_map.get(&e) {
+            return v.iter().take(limit).cloned().collect();
+        }
+        Vec::new()
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -152,5 +199,11 @@ mod tests {
         let results = idx.search_prefix("hel", 10);
         assert!(results.iter().any(|p| p.ends_with("Hello.txt")));
         assert!(results.iter().any(|p| p.ends_with("hello_world.md")));
+
+        // Test extension search
+        File::create(dir.path().join("image.CR2")).unwrap();
+        let idx2 = SearchIndex::build(&[dir.path().to_path_buf()]).unwrap();
+        let ext_results = idx2.search_by_extension(".cr2", 10);
+        assert!(ext_results.iter().any(|p| p.ends_with("image.CR2")));
     }
 }
