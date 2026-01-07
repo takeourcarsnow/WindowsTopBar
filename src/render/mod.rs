@@ -208,11 +208,9 @@ impl Renderer {
                     if dragging.as_deref() == Some(id.as_str()) { continue; }
                     let w = match id.as_str() {
                         "clock" => {
-                            let clock_text = self.module_registry
-                                .get("clock")
-                                .map(|m| m.display_text(&*config))
-                                .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
-                            let (tw, _) = self.measure_text(hdc, &clock_text);
+                            // Use sample text to get fixed width and prevent layout shifting
+                            let sample = self.clock_sample_text(&config);
+                            let (tw, _) = self.measure_text(hdc, &sample);
                             tw + item_padding * 2
                         }
                         _ => {
@@ -239,7 +237,7 @@ impl Renderer {
                                 .get("clock")
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
-                            let rect = self.draw_module_text(hdc, cx, bar_rect.height, &clock_text, item_padding, theme, false);
+                            let rect = self.draw_module_text_fixed(hdc, cx, bar_rect.height, &clock_text, item_padding, *w, theme);
                             self.module_bounds.insert("clock".to_string(), rect);
                         } else {
                             let text = self.module_registry
@@ -266,10 +264,13 @@ impl Renderer {
                             .get("clock")
                             .map(|m| m.display_text(&*config))
                             .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
-                        let (text_width, _) = self.measure_text(hdc, &clock_text);
-                        x -= text_width + item_padding * 2;
-                        let clock_rect = self.draw_module_text(
-                            hdc, x, bar_rect.height, &clock_text, item_padding, theme, false
+                        // Use sample text to get fixed width and prevent layout shifting
+                        let sample = self.clock_sample_text(&config);
+                        let (sample_width, _) = self.measure_text(hdc, &sample);
+                        let min_width = sample_width + item_padding * 2;
+                        x -= min_width;
+                        let clock_rect = self.draw_module_text_fixed(
+                            hdc, x, bar_rect.height, &clock_text, item_padding, min_width, theme
                         );
                         self.module_bounds.insert("clock".to_string(), clock_rect);
                         x -= item_spacing;
@@ -681,6 +682,39 @@ impl Renderer {
         }
 
         Rect::new(x, y, width, height)
+    }
+
+    /// Compute a sample clock string representing the widest possible time
+    /// for the current configuration, used to calculate fixed width and prevent layout shifting.
+    fn clock_sample_text(&self, config: &crate::config::Config) -> String {
+        let mut result = String::new();
+
+        if config.modules.clock.show_day {
+            // "Wed" is typically widest day abbreviation
+            result.push_str("Wed ");
+        }
+
+        if config.modules.clock.show_date {
+            // Use "Sep 00" as sample – September is often widest month abbreviation
+            result.push_str("Sep 00  ");
+        }
+
+        // Time portion: use widest digits (0 is often widest)
+        if config.modules.clock.format_24h {
+            if config.modules.clock.show_seconds {
+                result.push_str("00:00:00");
+            } else {
+                result.push_str("00:00");
+            }
+        } else {
+            if config.modules.clock.show_seconds {
+                result.push_str("00:00:00 PM");
+            } else {
+                result.push_str("00:00 PM");
+            }
+        }
+
+        result
     }
 
     /// Draw module text with a minimum width to prevent layout shifting
