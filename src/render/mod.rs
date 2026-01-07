@@ -432,24 +432,57 @@ impl Renderer {
                                 if let Some(module) = self.module_registry.get("system_info") {
                                     if let Some(values) = module.graph_values() {
                                         if !values.is_empty() {
-                                            let len = values.len() as i32;
                                             let inner_w = rect.width - item_padding * 2;
                                             let inner_h = rect.height - 4;
-                                            let bar_width = inner_w / len.max(1);
-                                            let mut x_pos = rect.x + item_padding;
+                                            let max_bars = inner_w.max(1) as usize;
 
-                                            for (i, v) in values.iter().enumerate() {
+                                            // Downsample or use full values depending on available pixels
+                                            let bars: Vec<f32> = if values.len() <= max_bars {
+                                                values
+                                            } else {
+                                                let mut out = Vec::with_capacity(max_bars);
+                                                let chunk = values.len() / max_bars;
+                                                let mut idx = 0usize;
+                                                for _ in 0..max_bars {
+                                                    let end = (idx + chunk).min(values.len());
+                                                    let slice = &values[idx..end];
+                                                    if !slice.is_empty() {
+                                                        let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
+                                                        out.push(avg);
+                                                    } else {
+                                                        out.push(0.0);
+                                                    }
+                                                    idx = end;
+                                                }
+                                                // If any remaining samples, fold them into the last bar
+                                                if idx < values.len() {
+                                                    let mut rem_sum = 0.0f32;
+                                                    let mut rem_count = 0usize;
+                                                    for i in idx..values.len() {
+                                                        rem_sum += values[i];
+                                                        rem_count += 1;
+                                                    }
+                                                    if rem_count > 0 && !out.is_empty() {
+                                                        let last = out.last_mut().unwrap();
+                                                        *last = (*last + rem_sum / rem_count as f32) / 2.0;
+                                                    }
+                                                }
+                                                out
+                                            };
+
+                                            let mut bar_width = inner_w / bars.len().max(1) as i32;
+                                            if bar_width < 1 {
+                                                bar_width = 1;
+                                            }
+
+                                            let mut x_pos = rect.x + item_padding;
+                                            for v in bars.iter() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
                                                 let bar_height = (clamped * inner_h as f32) as i32;
                                                 let bar_y = rect.y + 2 + (inner_h - bar_height);
 
                                                 unsafe {
-                                                    // Alternate colors: even indices = CPU (cpu_normal), odd = RAM (memory_normal)
-                                                    let color = if i % 2 == 0 {
-                                                        theme.cpu_normal.colorref()
-                                                    } else {
-                                                        theme.memory_normal.colorref()
-                                                    };
+                                                    let color = theme.cpu_normal.colorref();
                                                     let bar_brush = CreateSolidBrush(color);
                                                     let bar_rect = windows::Win32::Foundation::RECT {
                                                         left: x_pos,
@@ -478,8 +511,6 @@ impl Renderer {
                                 .unwrap_or_else(|| "CPU --  RAM --".to_string());
 
                             // Compute a sensible minimum width based on which parts are configured
-                            // to be shown (CPU and/or Memory). This avoids leaving a large empty
-                            // area when memory is hidden while still preventing layout jitter.
                             let sample_text = match (
                                 config.modules.system_info.show_cpu,
                                 config.modules.system_info.show_memory,
@@ -490,11 +521,12 @@ impl Renderer {
                                 _ => "CPU --  RAM --",
                             };
                             let (sample_w, _) = self.measure_text(hdc, sample_text);
-                            // Add horizontal padding and enforce a small minimum so the area isn't too tight
                             let mut min_width = sample_w + item_padding * 2;
-                            min_width = min_width.max(self.scale(60));
+                            min_width = min_width.max(self.scale(64));
 
                             x -= min_width;
+
+                            // Draw the percentage-only text (CPU / RAM)
                             let sysinfo_rect = self.draw_module_text_fixed(
                                 hdc,
                                 x,
@@ -504,6 +536,7 @@ impl Renderer {
                                 min_width,
                                 theme,
                             );
+
                             self.module_bounds
                                 .insert("system_info".to_string(), sysinfo_rect);
                             x -= item_spacing;
@@ -584,13 +617,49 @@ impl Renderer {
                                 if let Some(module) = self.module_registry.get("gpu") {
                                     if let Some(values) = module.graph_values() {
                                         if !values.is_empty() {
-                                            let len = values.len() as i32;
                                             let inner_w = rect.width - item_padding * 2;
                                             let inner_h = rect.height - 4;
-                                            let bar_width = inner_w / len.max(1);
-                                            let mut x_pos = rect.x + item_padding;
+                                            let max_bars = inner_w.max(1) as usize;
 
-                                            for v in values.iter() {
+                                            let bars: Vec<f32> = if values.len() <= max_bars {
+                                                values
+                                            } else {
+                                                let mut out = Vec::with_capacity(max_bars);
+                                                let chunk = values.len() / max_bars;
+                                                let mut idx = 0usize;
+                                                for _ in 0..max_bars {
+                                                    let end = (idx + chunk).min(values.len());
+                                                    let slice = &values[idx..end];
+                                                    if !slice.is_empty() {
+                                                        let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
+                                                        out.push(avg);
+                                                    } else {
+                                                        out.push(0.0);
+                                                    }
+                                                    idx = end;
+                                                }
+                                                if idx < values.len() {
+                                                    let mut rem_sum = 0.0f32;
+                                                    let mut rem_count = 0usize;
+                                                    for i in idx..values.len() {
+                                                        rem_sum += values[i];
+                                                        rem_count += 1;
+                                                    }
+                                                    if rem_count > 0 && !out.is_empty() {
+                                                        let last = out.last_mut().unwrap();
+                                                        *last = (*last + rem_sum / rem_count as f32) / 2.0;
+                                                    }
+                                                }
+                                                out
+                                            };
+
+                                            let mut bar_width = inner_w / bars.len().max(1) as i32;
+                                            if bar_width < 1 {
+                                                bar_width = 1;
+                                            }
+
+                                            let mut x_pos = rect.x + item_padding;
+                                            for v in bars.iter() {
                                                 let clamped = v.clamp(0.0, 100.0) / 100.0;
                                                 let bar_height = (clamped * inner_h as f32) as i32;
                                                 let bar_y = rect.y + 2 + (inner_h - bar_height);
@@ -623,8 +692,10 @@ impl Renderer {
                                 .map(|m| m.display_text(&*config))
                                 .unwrap_or_else(|| self.icons.get("gpu"));
                             // Fixed width for "GPU 100%" format
-                            let min_width = self.scale(75);
+                            let min_width = self.scale(92);
                             x -= min_width;
+
+                            // Simple text-only rendering for GPU (percentage text)
                             let gpu_rect = self.draw_module_text_fixed(
                                 hdc,
                                 x,

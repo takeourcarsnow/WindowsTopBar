@@ -187,16 +187,7 @@ impl Module for SystemInfoModule {
     }
 
     fn graph_values(&self) -> Option<Vec<f32>> {
-        let mut combined = Vec::new();
-        let cpu_hist = self.cpu_history();
-        let mem_hist = self.memory_history();
-        
-        // Interleave CPU and RAM values
-        for i in 0..cpu_hist.len().min(mem_hist.len()) {
-            combined.push(cpu_hist[i]);
-            combined.push(mem_hist[i]);
-        }
-        
-        Some(combined)
+        // Simplified: return the latest CPU usage as a single value so rendering always has at least one bar
+        Some(vec![self.cpu_usage])
     }
 }

@@ -32,7 +32,7 @@ pub struct GpuModule {
 
 impl GpuModule {
     pub fn new() -> Self {
-        Self {
+        let mut s = Self {
             cached_text: String::new(),
             gpu_info: GpuInfo::default(),
             usage_history: VecDeque::with_capacity(60),
@@ -40,7 +40,21 @@ impl GpuModule {
             history_len: 60,
             last_update: Instant::now(),
             update_interval_ms: 2000,
+        };
+
+        // Query once at startup so graphs have an initial meaningful value
+        s.query_gpu_info();
+        let usage_val = s.gpu_info.usage;
+        s.usage_history = VecDeque::from(vec![usage_val; s.history_len]);
+
+        if s.gpu_info.memory_total > 0 {
+            let mem_pct = s.memory_usage_percent().unwrap_or(0.0);
+            s.memory_history = VecDeque::from(vec![mem_pct; s.history_len]);
         }
+
+        s.cached_text = s.build_display_text(&crate::config::Config::default());
+
+        s
     }
 
     /// Force an immediate update
@@ -74,6 +88,15 @@ impl GpuModule {
     /// Get memory history (oldest to newest, percent)
     pub fn memory_history(&self) -> Vec<f32> {
         self.memory_history.iter().copied().collect()
+    }
+
+    /// Get current VRAM usage percent if available
+    pub fn memory_usage_percent(&self) -> Option<f32> {
+        if self.gpu_info.memory_total > 0 {
+            Some((self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as f32)
+        } else {
+            None
+        }
     }
 
     /// Query GPU information using Windows APIs
@@ -405,6 +428,7 @@ impl Module for GpuModule {
     }
 
     fn graph_values(&self) -> Option<Vec<f32>> {
-        Some(self.usage_history())
+        // Simplified: return the current GPU usage as a single value for robust drawing
+        Some(vec![self.gpu_info.usage])
     }
 }

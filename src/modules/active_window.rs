@@ -12,6 +12,8 @@ use windows::Win32::System::Threading::{
 use windows::Win32::UI::WindowsAndMessaging::{
     GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
 };
+use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+use windows::Win32::System::Threading::GetCurrentProcessId;
 
 use super::Module;
 use crate::utils::truncate_string;
@@ -23,6 +25,15 @@ pub struct ActiveWindowModule {
     process_name: String,
     last_update: Instant,
     max_title_length: usize,
+    // Remember the last non-TopBar window so we can continue showing it when TopBar is focused
+    last_non_topbar_title: String,
+    last_non_topbar_process: String,
+    // Debounce candidate focus changes to avoid showing transient windows like Explorer during Alt-Tab
+    candidate_title: String,
+    candidate_process: String,
+    candidate_pid: u32,
+    candidate_since: Option<Instant>,
+    focus_debounce_ms: u64,
 }
 
 impl ActiveWindowModule {
@@ -33,6 +44,13 @@ impl ActiveWindowModule {
             process_name: String::new(),
             last_update: Instant::now(),
             max_title_length: 50,
+            last_non_topbar_title: String::new(),
+            last_non_topbar_process: String::new(),
+            candidate_title: String::new(),
+            candidate_process: String::new(),
+            candidate_pid: 0,
+            candidate_since: None,
+            focus_debounce_ms: 200, // ms
         };
         module.force_update();
         module
@@ -40,9 +58,67 @@ impl ActiveWindowModule {
 
     /// Force an immediate update
     fn force_update(&mut self) {
-        let (title, process) = self.get_active_window_info();
-        self.window_title = title;
-        self.process_name = process;
+        // Get title, process name and process id for the foreground window
+        let (title, process, pid) = self.get_active_window_info();
+
+        // Compare to our own process id when possible
+        let own_pid = unsafe { GetCurrentProcessId() };
+
+        let lc_proc = process.to_lowercase();
+        let lc_title = title.to_lowercase();
+        let is_topbar = (pid != 0 && pid == own_pid) || lc_proc.contains("topbar") || lc_title.contains("topbar") || lc_title == "topbar";
+
+        // If Alt is being pressed, ignore Explorer.exe as a transient focus (avoid showing it during Alt-Tab / taskbar switching)
+        let is_explorer = lc_proc.contains("explorer") || lc_title.contains("explorer");
+        let alt_down = unsafe { (GetAsyncKeyState(0x12) as u16 & 0x8000u16) != 0 };
+
+        let now = Instant::now();
+
+        if is_topbar || (is_explorer && alt_down) {
+            // If TopBar or transient Explorer is focused, keep showing the last known non-TopBar window and clear any candidate
+            if !self.last_non_topbar_title.is_empty() {
+                self.window_title = self.last_non_topbar_title.clone();
+                self.process_name = self.last_non_topbar_process.clone();
+            }
+            self.candidate_since = None;
+            self.candidate_title.clear();
+            self.candidate_process.clear();
+            self.candidate_pid = 0;
+        } else {
+            // If this matches the currently shown non-TopBar window, apply immediately and clear candidate
+            if title == self.last_non_topbar_title && process == self.last_non_topbar_process {
+                self.window_title = title.clone();
+                self.process_name = process.clone();
+                self.candidate_since = None;
+            } else {
+                // New candidate focus
+                if self.last_non_topbar_title.is_empty() {
+                    // No previous value (startup) — accept immediately
+                    self.last_non_topbar_title = title.clone();
+                    self.last_non_topbar_process = process.clone();
+                    self.window_title = title.clone();
+                    self.process_name = process.clone();
+                    self.candidate_since = None;
+                } else {
+                    // If candidate changed, reset timer
+                    if self.candidate_since.is_none() || self.candidate_title != title || self.candidate_process != process || self.candidate_pid != pid {
+                        self.candidate_title = title.clone();
+                        self.candidate_process = process.clone();
+                        self.candidate_pid = pid;
+                        self.candidate_since = Some(now);
+                    } else if let Some(since) = self.candidate_since {
+                        if now.duration_since(since).as_millis() as u64 >= self.focus_debounce_ms {
+                            // Commit candidate as stable foreground window
+                            self.last_non_topbar_title = self.candidate_title.clone();
+                            self.last_non_topbar_process = self.candidate_process.clone();
+                            self.window_title = self.last_non_topbar_title.clone();
+                            self.process_name = self.last_non_topbar_process.clone();
+                            self.candidate_since = None;
+                        }
+                    }
+                }
+            }
+        }
 
         // Build display text - show process name like macOS
         self.cached_text = if self.process_name.is_empty() {
@@ -67,20 +143,24 @@ impl ActiveWindowModule {
     }
 
     /// Get active window information
-    fn get_active_window_info(&self) -> (String, String) {
+    fn get_active_window_info(&self) -> (String, String, u32) {
         unsafe {
             let hwnd = GetForegroundWindow();
             if hwnd.0.is_null() {
-                return (String::new(), String::new());
+                return (String::new(), String::new(), 0);
             }
 
             // Get window title
             let title = self.get_window_title(hwnd);
 
+            // Get process id (may be 0 on failure)
+            let mut process_id: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+
             // Get process name
             let process = self.get_process_name(hwnd);
 
-            (title, process)
+            (title, process, process_id)
         }
     }
 
