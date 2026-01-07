@@ -78,6 +78,20 @@ impl NetworkModule {
         // Build display text
         self.cached_text = self.build_display_text();
         self.last_update = Instant::now();
+
+        // Temporary debug: append current network state to file to help diagnose display issues
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("network_debug.log") {
+            use std::io::Write;
+            let _ = writeln!(
+                f,
+                "{:?} connected={} name={:?} signal={} speeds={:?}\n",
+                self.network_type,
+                self.is_connected,
+                self.network_name,
+                self.signal_strength,
+                (self.download_speed, self.upload_speed)
+            );
+        }
     }
 
     /// Try to sample total interface bytes (received, transmitted) across adapters
@@ -125,6 +139,10 @@ impl NetworkModule {
 
     /// Check network status using Windows API
     fn check_network_status(&mut self) {
+        // Reset state before scanning
+        self.is_connected = false;
+        self.network_type = NetworkType::Unknown;
+
         // Simple connectivity check using IP helper
         unsafe {
             use windows::Win32::Foundation::ERROR_BUFFER_OVERFLOW;
@@ -160,6 +178,14 @@ impl NetworkModule {
                     while !current.is_null() {
                         let adapter = &*current;
 
+                        // Debug: adapter info
+                        log::debug!(
+                            "Network adapter found: IfType={}, OperStatus={}, Description={}",
+                            adapter.IfType,
+                            adapter.OperStatus.0,
+                            if adapter.Description.is_null() { "<null>" } else { "<desc>" }
+                        );
+
                         // Check if adapter is up and connected
                         // IfType: 6 = Ethernet, 71 = WiFi
                         if adapter.OperStatus.0 == 1 {
@@ -168,26 +194,35 @@ impl NetworkModule {
                                 6 => {
                                     self.network_type = NetworkType::Ethernet;
                                     self.is_connected = true;
+                                    log::debug!("Adapter is Ethernet and up");
                                     // Don't break - prefer WiFi if available
                                 }
                                 71 => {
                                     self.network_type = NetworkType::WiFi;
                                     self.is_connected = true;
+                                    log::debug!("Adapter is WiFi and up");
                                     break; // WiFi found, stop looking
                                 }
-                                _ => {}
+                                other => {
+                                    log::debug!("Adapter with IfType {} is up (ignored)", other);
+                                }
                             }
                         }
 
                         current = adapter.Next;
                     }
+                } else {
+                    log::warn!("GetAdaptersAddresses failed with code {}", result);
                 }
+            } else {
+                log::warn!("GetAdaptersAddresses initial call returned {} (expected ERROR_BUFFER_OVERFLOW)", result);
             }
         }
 
         // If no connected adapter found
         if !self.is_connected {
             self.network_type = NetworkType::Disconnected;
+            log::debug!("No connected adapters found; marking as Disconnected");
         }
     }
 
@@ -200,18 +235,24 @@ impl NetworkModule {
             WLAN_CONNECTION_ATTRIBUTES, WLAN_INTERFACE_INFO_LIST,
         };
 
+        // Clear previous WiFi info by default
+        self.network_name = None;
+        self.signal_strength = 0;
+
         unsafe {
             let mut client_handle = HANDLE::default();
             let mut negotiated_version = 0u32;
 
             // Open WLAN handle
             if WlanOpenHandle(2, None, &mut negotiated_version, &mut client_handle) != 0 {
+                log::warn!("WlanOpenHandle failed");
                 return;
             }
 
             // Enumerate interfaces
             let mut interface_list: *mut WLAN_INTERFACE_INFO_LIST = std::ptr::null_mut();
             if WlanEnumInterfaces(client_handle, None, &mut interface_list) != 0 {
+                log::warn!("WlanEnumInterfaces failed");
                 let _ = WlanCloseHandle(client_handle, None);
                 return;
             }
@@ -223,14 +264,17 @@ impl NetworkModule {
                 for i in 0..list.dwNumberOfItems {
                     let interface_info = &list.InterfaceInfo[i as usize];
 
+                    log::debug!("WLAN interface {} state={:?} GUID={:?}", i, interface_info.isState, interface_info.InterfaceGuid);
+
                     if interface_info.isState == wlan_interface_state_connected {
+                        log::debug!("WLAN interface {} is connected", i);
                         // Get connection attributes
                         let mut data_size = 0u32;
                         let mut connection_attrs: *mut WLAN_CONNECTION_ATTRIBUTES =
                             std::ptr::null_mut();
                         let mut opcode_value_type = windows::Win32::NetworkManagement::WiFi::WLAN_OPCODE_VALUE_TYPE::default();
 
-                        if WlanQueryInterface(
+                        let res = WlanQueryInterface(
                             client_handle,
                             &interface_info.InterfaceGuid,
                             wlan_intf_opcode_current_connection,
@@ -238,19 +282,28 @@ impl NetworkModule {
                             &mut data_size,
                             &mut connection_attrs as *mut _ as *mut *mut std::ffi::c_void,
                             Some(&mut opcode_value_type),
-                        ) == 0
-                            && !connection_attrs.is_null()
-                        {
+                        );
+
+                        if res == 0 && !connection_attrs.is_null() {
                             let attrs = &*connection_attrs;
 
                             // Get SSID
                             let ssid_len =
                                 attrs.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
+                            log::debug!("WLAN connection SSID length: {}", ssid_len);
+
+                            // Also append to debug file for GUI runs
+                            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("network_debug.log") {
+                                use std::io::Write;
+                                let _ = writeln!(f, "WLAN iface {}: ssid_len={} signal={}", i, ssid_len, attrs.wlanAssociationAttributes.wlanSignalQuality);
+                            }
+
                             if ssid_len > 0 {
                                 let ssid_bytes =
                                     &attrs.wlanAssociationAttributes.dot11Ssid.ucSSID[..ssid_len];
-                                self.network_name =
-                                    Some(String::from_utf8_lossy(ssid_bytes).to_string());
+                                let ssid = String::from_utf8_lossy(ssid_bytes).to_string();
+                                log::debug!("WLAN SSID: {}", ssid);
+                                self.network_name = Some(ssid);
                             }
 
                             // Get signal quality (0-100)
@@ -258,7 +311,55 @@ impl NetworkModule {
                                 attrs.wlanAssociationAttributes.wlanSignalQuality;
 
                             WlanFreeMemory(connection_attrs as *mut std::ffi::c_void);
-                        }
+                        } else {
+                            log::debug!("WlanQueryInterface returned error {} or null attrs", res);
+                            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("network_debug.log") {
+                                use std::io::Write;
+                                let _ = writeln!(f, "WlanQueryInterface failed for iface {} with code {}\n", i, res);
+                            }
+                            // If we receive access denied from WLAN APIs, try a CLI fallback to extract the SSID
+                            // This helps when Windows denies access to WLAN APIs for non-elevated apps.
+                            const ERROR_ACCESS_DENIED: u32 = 5;
+                            if res == ERROR_ACCESS_DENIED {
+                                log::debug!("WLAN API access denied; attempting 'netsh' fallback to read SSID");
+
+                                // Attempt to run: netsh wlan show interfaces
+                                if let Ok(output) = std::process::Command::new("netsh").args(["wlan", "show", "interfaces"]).output() {
+                                    if output.status.success() {
+                                        if let Ok(s) = String::from_utf8(output.stdout) {
+                                            for line in s.lines() {
+                                                let t = line.trim();
+                                                // Match lines like: "SSID                   : MyNetwork"
+                                                if t.starts_with("SSID") && t.contains(":") {
+                                                    let parts: Vec<&str> = t.splitn(2, ':').collect();
+                                                    if parts.len() == 2 {
+                                                        let ssid = parts[1].trim();
+                                                        if !ssid.is_empty() && !ssid.starts_with("BSSID") {
+                                                            log::debug!("netsh SSID found: {}", ssid);
+                                                            self.network_name = Some(ssid.to_string());
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        log::debug!("netsh exited with non-zero status: {}", output.status);
+                                    }
+                                } else {
+                                    log::debug!("Failed to run netsh command for SSID fallback");
+                                }
+
+                                // If netsh did not provide an SSID, fall back to a generic label
+                                if self.network_name.is_none() {
+                                    self.network_name = Some("Wi-Fi".to_string());
+                                }
+
+                                // Ensure a reasonable signal value so the UI shows a connected icon
+                                if self.signal_strength == 0 {
+                                    self.signal_strength = 50;
+                                }
+                            }                        }
                     }
                 }
 
@@ -298,10 +399,11 @@ impl NetworkModule {
 
     /// Get WiFi icon based on signal strength
     fn get_wifi_icon(&self) -> &'static str {
-        if self.signal_strength >= 20 {
-            "📶" // Connected
+        // Prefer connection status over raw signal when available
+        if self.is_connected {
+            "📶"
         } else {
-            "📵" // Very weak / disconnected
+            "📵"
         }
     }
 

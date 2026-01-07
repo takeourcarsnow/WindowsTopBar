@@ -25,9 +25,9 @@ use crate::app::Application;
 use crate::config::Config;
 
 fn main() -> Result<()> {
-    // Initialize logging
+    // Initialize logging: prefer RUST_LOG env when present, default to info
     env_logger::builder()
-        .filter_level(LevelFilter::Info)
+        .parse_filters(&std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
         .format_timestamp_millis()
         .init();
 
