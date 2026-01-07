@@ -303,20 +303,20 @@ impl WindowManager {
 
             // Reserve screen space if configured
             if config.behavior.reserve_space {
-                Self::reserve_screen_space(rect, config)?;
+                Self::reserve_screen_space(hwnd, rect, config)?;
             }
         }
         Ok(())
     }
 
     /// Reserve screen space (like a taskbar)
-    fn reserve_screen_space(rect: &Rect, config: &Config) -> Result<()> {
-        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_NEW, ABM_SETPOS, APPBARDATA, ABE_TOP, ABE_BOTTOM};
+    fn reserve_screen_space(hwnd: HWND, rect: &Rect, config: &Config) -> Result<()> {
+        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA, ABE_TOP, ABE_BOTTOM};
 
         unsafe {
             let mut abd = APPBARDATA {
                 cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-                hWnd: HWND::default(),
+                hWnd: hwnd,
                 uCallbackMessage: 0,
                 uEdge: match config.appearance.position {
                     BarPosition::Top => ABE_TOP,
@@ -331,10 +331,32 @@ impl WindowManager {
                 lParam: LPARAM(0),
             };
 
+            // Register as an AppBar with the Shell
             SHAppBarMessage(ABM_NEW, &mut abd);
+            // Let the shell adjust the requested rectangle to avoid overlaps
+            SHAppBarMessage(ABM_QUERYPOS, &mut abd);
+            // Apply the final position and reserve the space
             SHAppBarMessage(ABM_SETPOS, &mut abd);
         }
         Ok(())
+    }
+
+    /// Remove any AppBar reservation for this window (called on destroy)
+    fn remove_screen_space(hwnd: HWND) {
+        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_REMOVE, APPBARDATA};
+
+        unsafe {
+            let mut abd = APPBARDATA {
+                cbSize: std::mem::size_of::<APPBARDATA>() as u32,
+                hWnd: hwnd,
+                uCallbackMessage: 0,
+                uEdge: 0,
+                rc: RECT { left: 0, top: 0, right: 0, bottom: 0 },
+                lParam: LPARAM(0),
+            };
+
+            let _ = SHAppBarMessage(ABM_REMOVE, &mut abd);
+        }
     }
 
     /// Show the window
@@ -343,6 +365,15 @@ impl WindowManager {
             let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
             self.state.write().is_visible = true;
         }
+
+        // If configured, register/reserve the screen space when showing
+        let state_guard = self.state.read();
+        if state_guard.config.behavior.reserve_space {
+            let rect = state_guard.bar_rect;
+            let cfg = state_guard.config.clone();
+            drop(state_guard);
+            let _ = Self::reserve_screen_space(self.hwnd, &rect, &cfg);
+        }
     }
 
     /// Hide the window
@@ -350,6 +381,13 @@ impl WindowManager {
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_HIDE);
             self.state.write().is_visible = false;
+        }
+
+        // If configured, remove the reserved space so other apps can use full screen
+        let state_guard = self.state.read();
+        if state_guard.config.behavior.reserve_space {
+            drop(state_guard);
+            Self::remove_screen_space(self.hwnd);
         }
     }
 
@@ -825,6 +863,7 @@ unsafe extern "system" fn window_proc(
 
         WM_DESTROY => {
             info!("Window destroyed, quitting application");
+            WindowManager::remove_screen_space(hwnd);
             PostQuitMessage(0);
             LRESULT(0)
         }
