@@ -859,51 +859,58 @@ impl Renderer {
                                 if let Some(disk_module) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
                                     let usage_percent = disk_module.primary_usage_percent() as f32 / 100.0;
                                     
-                                    // Draw pie chart
+                                    // Draw a very simple pie: a subtle background circle and a filled pie slice for used space
                                     let center_x = rect.x + rect.width / 2;
                                     let center_y = rect.y + rect.height / 2;
-                                    let radius = (rect.width.min(rect.height) / 2 - 2) as f32;
-                                    
-                                    // Minimalistic ring-style disk usage: dark, monochrome, simple arc
-                                    let center_x = rect.x + rect.width / 2;
-                                    let center_y = rect.y + rect.height / 2;
-                                    let radius = (rect.width.min(rect.height) / 2 - 2) as f32;
-                                    let steps = 40;
-                                    let angle_step = 2.0 * std::f32::consts::PI / steps as f32;
+                                    let radius = (rect.width.min(rect.height) / 2 - 2) as i32;
+                                    let left = center_x - radius;
+                                    let top = center_y - radius;
+                                    let right = center_x + radius;
+                                    let bottom = center_y + radius;
 
-                                    // Background ring (subtle)
-                                    let bg_pen = CreatePen(PS_SOLID, 2, theme.text_secondary.colorref());
-                                    let old_pen = SelectObject(hdc, bg_pen);
-                                    for i in 0..steps {
-                                        let angle1 = -std::f32::consts::PI / 2.0 + angle_step * i as f32;
-                                        let angle2 = -std::f32::consts::PI / 2.0 + angle_step * (i + 1) as f32;
-                                        let x1 = center_x + (angle1.cos() * radius) as i32;
-                                        let y1 = center_y + (angle1.sin() * radius) as i32;
-                                        let x2 = center_x + (angle2.cos() * radius) as i32;
-                                        let y2 = center_y + (angle2.sin() * radius) as i32;
-                                        let _ = MoveToEx(hdc, x1, y1, None);
-                                        let _ = LineTo(hdc, x2, y2);
-                                    }
-                                    let _ = SelectObject(hdc, old_pen);
-                                    let _ = DeleteObject(bg_pen);
-
-                                    // Used arc (primary color, thicker)
-                                    if usage_percent > 0.0 {
-                                        let used_steps = (steps as f32 * usage_percent).ceil() as i32;
-                                        let fg_pen = CreatePen(PS_SOLID, 3, theme.text_primary.colorref());
-                                        let old_pen = SelectObject(hdc, fg_pen);
-                                        for i in 0..used_steps {
-                                            let angle1 = -std::f32::consts::PI / 2.0 + angle_step * i as f32;
-                                            let angle2 = -std::f32::consts::PI / 2.0 + angle_step * (i + 1) as f32;
-                                            let x1 = center_x + (angle1.cos() * radius) as i32;
-                                            let y1 = center_y + (angle1.sin() * radius) as i32;
-                                            let x2 = center_x + (angle2.cos() * radius) as i32;
-                                            let y2 = center_y + (angle2.sin() * radius) as i32;
-                                            let _ = MoveToEx(hdc, x1, y1, None);
-                                            let _ = LineTo(hdc, x2, y2);
-                                        }
+                                    unsafe {
+                                        // Background circle (subtle)
+                                        let bg_brush = CreateSolidBrush(theme.text_secondary.colorref());
+                                        let old_brush = SelectObject(hdc, bg_brush);
+                                        let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
+                                        let old_pen = SelectObject(hdc, pen);
+                                        let _ = Ellipse(hdc, left, top, right, bottom);
                                         let _ = SelectObject(hdc, old_pen);
-                                        let _ = DeleteObject(fg_pen);
+                                        let _ = DeleteObject(pen);
+                                        let _ = SelectObject(hdc, old_brush);
+                                        let _ = DeleteObject(bg_brush);
+
+                                        // Used slice (filled pie) — if 0% we skip drawing it; if 100% we draw a filled circle
+                                        if usage_percent <= 0.0 {
+                                            // nothing to draw
+                                        } else if usage_percent >= 1.0 {
+                                            let fg_brush = CreateSolidBrush(theme.text_primary.colorref());
+                                            let old_brush = SelectObject(hdc, fg_brush);
+                                            let pen = CreatePen(PS_SOLID, 0, theme.text_primary.colorref());
+                                            let old_pen = SelectObject(hdc, pen);
+                                            let _ = Ellipse(hdc, left, top, right, bottom);
+                                            let _ = SelectObject(hdc, old_pen);
+                                            let _ = DeleteObject(pen);
+                                            let _ = SelectObject(hdc, old_brush);
+                                            let _ = DeleteObject(fg_brush);
+                                        } else {
+                                            let start = -std::f32::consts::PI / 2.0;
+                                            let end = start + usage_percent * 2.0 * std::f32::consts::PI;
+                                            let x1 = center_x + (start.cos() * radius as f32) as i32;
+                                            let y1 = center_y + (start.sin() * radius as f32) as i32;
+                                            let x2 = center_x + (end.cos() * radius as f32) as i32;
+                                            let y2 = center_y + (end.sin() * radius as f32) as i32;
+
+                                            let fg_brush = CreateSolidBrush(theme.text_primary.colorref());
+                                            let old_brush = SelectObject(hdc, fg_brush);
+                                            let pen = CreatePen(PS_SOLID, 0, theme.text_primary.colorref());
+                                            let old_pen = SelectObject(hdc, pen);
+                                            let _ = Pie(hdc, left, top, right, bottom, x1, y1, x2, y2);
+                                            let _ = SelectObject(hdc, old_pen);
+                                            let _ = DeleteObject(pen);
+                                            let _ = SelectObject(hdc, old_brush);
+                                            let _ = DeleteObject(fg_brush);
+                                        }
                                     }
                                 }
                             }
