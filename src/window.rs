@@ -172,6 +172,24 @@ impl WindowManager {
         // Initialize renderer (stored in thread-local)
         set_renderer(Renderer::new(hwnd, dpi)?);
 
+        // Ensure older configs get migrated to enable graph view by default
+        {
+            let cfg = state.read().config.clone();
+            let mut new_cfg = (*cfg).clone();
+            if new_cfg.migrate_enable_graphs() {
+                state.write().config = Arc::new(new_cfg);
+            }
+        }
+
+        // Force a weather refresh so icons update immediately after migration
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get_mut("weather") {
+                if let Some(wm) = module.as_any_mut().downcast_mut::<crate::modules::weather::WeatherModule>() {
+                    wm.refresh();
+                }
+            }
+        });
+
         info!("Window created successfully at {:?}", bar_rect);
 
         Ok(Self { hwnd, state })

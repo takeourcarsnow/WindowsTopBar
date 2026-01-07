@@ -40,8 +40,12 @@ impl Config {
         if config_path.exists() {
             info!("Loading configuration from: {:?}", config_path);
             let content = std::fs::read_to_string(&config_path)?;
-            match toml::from_str(&content) {
-                Ok(config) => return Ok(config),
+            match toml::from_str::<Config>(&content) {
+                Ok(mut config) => {
+                    // Migrate older configs to enable graphs by default
+                    let _ = config.migrate_enable_graphs();
+                    return Ok(config);
+                }
                 Err(e) => {
                     warn!("Failed to parse config, using defaults: {}", e);
                 }
@@ -65,6 +69,28 @@ impl Config {
         std::fs::write(&config_path, content)?;
         info!("Configuration saved to: {:?}", config_path);
         Ok(())
+    }
+
+    /// Perform migrations for older config files
+    /// Enables graph view for system_info and gpu modules when present
+    pub fn migrate_enable_graphs(&mut self) -> bool {
+        let mut changed = false;
+        if !self.modules.system_info.show_graph {
+            self.modules.system_info.show_graph = true;
+            changed = true;
+        }
+        if !self.modules.gpu.show_graph {
+            self.modules.gpu.show_graph = true;
+            changed = true;
+        }
+        if changed {
+            if let Err(e) = self.save() {
+                warn!("Failed to save config during migration: {}", e);
+            } else {
+                info!("Enabled default graph view for system_info and gpu (migration)");
+            }
+        }
+        changed
     }
 }
 

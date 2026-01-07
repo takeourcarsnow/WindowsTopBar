@@ -33,17 +33,15 @@ impl WeatherCondition {
     /// Get icon for weather condition
     pub fn icon(&self) -> &'static str {
         match self {
-            Self::Clear => "☀",
-            Self::PartlyCloudy => "⛅",
-            Self::Cloudy => "☁",
-            Self::Overcast => "☁",
-            Self::Rain => "🌧",
-            Self::HeavyRain => "🌧",
-            Self::Thunderstorm => "⛈",
+            Self::Clear => "☀", // Sun
+            // Cloudy-like conditions use a single cloud glyph
+            Self::PartlyCloudy | Self::Cloudy | Self::Overcast | Self::Fog | Self::Windy => "☁",
+            // Rain vs Thunderstorm are distinct (umbrella vs lightning)
+            Self::Rain | Self::HeavyRain => "☂",
+            Self::Thunderstorm => "⚡",
             Self::Snow => "❄",
-            Self::Fog => "🌫",
-            Self::Windy => "💨",
-            Self::Unknown => "🌡",
+            // Hide icon for unknown to avoid bad rendering
+            Self::Unknown => "",
         }
     }
 
@@ -124,7 +122,7 @@ pub struct WeatherModule {
 impl WeatherModule {
     pub fn new() -> Self {
         let module = Self {
-            cached_text: "🌡️ ...".to_string(), // Show loading indicator initially
+            cached_text: "...".to_string(), // Show loading indicator initially
             enabled: true,                     // Enabled by default - no API key needed!
             unit: TemperatureUnit::Celsius,
             show_icon: true,
@@ -435,9 +433,9 @@ impl WeatherModule {
             // Show status while loading
             let status = self.fetch_status.lock().unwrap();
             return match &*status {
-                FetchStatus::Fetching => "🌡️ ...".to_string(),
-                FetchStatus::LocationNotFound => "🌡️ Set location".to_string(),
-                FetchStatus::Error(_) => "🌡️ Error".to_string(),
+                FetchStatus::Fetching => "...".to_string(),
+                FetchStatus::LocationNotFound => "Set location".to_string(),
+                FetchStatus::Error(_) => "Error".to_string(),
                 _ => String::new(),
             };
         };

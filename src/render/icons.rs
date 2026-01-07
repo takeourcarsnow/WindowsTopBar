@@ -70,17 +70,17 @@ impl Icons {
         icons.insert("shuffle".to_string(), "⤮".to_string());
         icons.insert("repeat".to_string(), "⟲".to_string());
 
-        // Weather icons - cleaner symbols
+        // Weather icons - simplified, monochrome-friendly glyphs
         icons.insert("sun".to_string(), "☀".to_string());
         icons.insert("cloud".to_string(), "☁".to_string());
-        icons.insert("partly_cloudy".to_string(), "⛅".to_string());
-        icons.insert("rain".to_string(), "🌧".to_string());
-        icons.insert("thunderstorm".to_string(), "⛈".to_string());
+        icons.insert("partly_cloudy".to_string(), "⛅".to_string()); // simple mix
+        icons.insert("rain".to_string(), "☂".to_string()); // umbrella (monochrome)
+        icons.insert("thunderstorm".to_string(), "⚡".to_string()); // lightning bolt
         icons.insert("snow".to_string(), "❄".to_string());
-        icons.insert("fog".to_string(), "🌫".to_string());
-        icons.insert("temperature".to_string(), "🌡".to_string());
-        icons.insert("wind".to_string(), "💨".to_string());
-        icons.insert("moon".to_string(), "🌙".to_string());
+        icons.insert("fog".to_string(), "☁".to_string()); // reuse cloud for fog
+        icons.insert("temperature".to_string(), "°".to_string()); // degree sign
+        icons.insert("wind".to_string(), "~".to_string()); // simple tilde
+        icons.insert("moon".to_string(), "☾".to_string());
 
         // Status icons - modern notification style
         icons.insert("info".to_string(), "ⓘ".to_string()); // Circled i
