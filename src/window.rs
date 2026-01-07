@@ -1032,6 +1032,31 @@ const MENU_RESET: u32 = 1202;
 const MENU_TOGGLE_SEARCH: u32 = 1210;
 const MENU_EXIT: u32 = 1999;
 
+/// Helper to display a popup menu and return the selected command ID (or 0 if none)
+fn show_popup_menu(hwnd: HWND, x: i32, y: i32, build_menu: impl FnOnce(HMENU)) -> u32 {
+    unsafe {
+        let menu = CreatePopupMenu().unwrap_or_default();
+        if menu.is_invalid() {
+            return 0;
+        }
+
+        build_menu(menu);
+
+        let _ = SetForegroundWindow(hwnd);
+        let cmd = TrackPopupMenu(
+            menu,
+            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
+            x,
+            y,
+            0,
+            hwnd,
+            None,
+        );
+        DestroyMenu(menu).ok();
+        cmd.0 as u32
+    }
+}
+
 /// Show the context menu
 fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
     unsafe {
@@ -1258,64 +1283,20 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
             if let Some(state) = get_window_state() {
                 let config = state.read().config.clone();
                 let mut new_config = (*config).clone();
-                if new_config
-                    .modules
-                    .center_modules
-                    .iter()
-                    .any(|m| m == "clock")
-                {
+                
+                if new_config.modules.center_modules.iter().any(|m| m == "clock") {
                     // Remove from center, add back to right at default position
                     new_config.modules.center_modules.retain(|m| m != "clock");
-                    // Ensure the boolean reflects removal from center
                     new_config.modules.clock.center = false;
 
-                    if !new_config
-                        .modules
-                        .right_modules
-                        .iter()
-                        .any(|m| m == "clock")
-                    {
-                        let default_order = vec![
-                            "media",
-                            "keyboard_layout",
-                            "gpu",
-                            "system_info",
-                            "disk",
-                            "network",
-                            "bluetooth",
-                            "volume",
-                            "battery",
-                            "uptime",
-                            "clock",
-                        ];
-                        let insert_pos = default_order
-                            .iter()
-                            .position(|&m| m == "clock")
-                            .map(|target_idx| {
-                                new_config
-                                    .modules
-                                    .right_modules
-                                    .iter()
-                                    .position(|m| {
-                                        default_order
-                                            .iter()
-                                            .position(|&dm| dm == m.as_str())
-                                            .map(|existing_idx| existing_idx > target_idx)
-                                            .unwrap_or(false)
-                                    })
-                                    .unwrap_or(new_config.modules.right_modules.len())
-                            })
-                            .unwrap_or(new_config.modules.right_modules.len());
-                        new_config
-                            .modules
-                            .right_modules
-                            .insert(insert_pos, "clock".to_string());
+                    if !new_config.modules.right_modules.iter().any(|m| m == "clock") {
+                        let insert_pos = find_module_insert_position(&new_config.modules.right_modules, "clock");
+                        new_config.modules.right_modules.insert(insert_pos, "clock".to_string());
                     }
                 } else {
                     // Add to center and remove from right
                     new_config.modules.center_modules.push("clock".to_string());
                     new_config.modules.right_modules.retain(|m| m != "clock");
-                    // Ensure the boolean reflects that clock is centered
                     new_config.modules.clock.center = true;
                 }
 
@@ -1575,6 +1556,43 @@ fn show_about_dialog() {
     }
 }
 
+/// Default order of right-side modules for insertion position calculation
+const DEFAULT_RIGHT_MODULE_ORDER: &[&str] = &[
+    "weather",
+    "media",
+    "clipboard",
+    "keyboard_layout",
+    "gpu",
+    "system_info",
+    "disk",
+    "network",
+    "bluetooth",
+    "volume",
+    "battery",
+    "uptime",
+    "clock",
+];
+
+/// Find the appropriate insert position for a module based on default order
+fn find_module_insert_position(existing_modules: &[String], module_id: &str) -> usize {
+    DEFAULT_RIGHT_MODULE_ORDER
+        .iter()
+        .position(|&m| m == module_id)
+        .map(|target_idx| {
+            existing_modules
+                .iter()
+                .position(|m| {
+                    DEFAULT_RIGHT_MODULE_ORDER
+                        .iter()
+                        .position(|&dm| dm == m.as_str())
+                        .map(|existing_idx| existing_idx > target_idx)
+                        .unwrap_or(false)
+                })
+                .unwrap_or(existing_modules.len())
+        })
+        .unwrap_or(existing_modules.len())
+}
+
 /// Toggle a module on/off
 fn toggle_module(hwnd: HWND, module_id: &str) {
     if let Some(state) = get_window_state() {
@@ -1606,44 +1624,8 @@ fn toggle_module(hwnd: HWND, module_id: &str) {
             info!("Disabled module: {}", module_id);
         } else {
             // Add it back at the appropriate position
-            let default_order = vec![
-                "media",
-                "clipboard",
-                "keyboard_layout",
-                "gpu",
-                "system_info",
-                "disk",
-                "network",
-                "bluetooth",
-                "volume",
-                "battery",
-                "uptime",
-                "clock",
-            ];
-            let insert_pos = default_order
-                .iter()
-                .position(|&m| m == module_id)
-                .map(|target_idx| {
-                    // Find where to insert based on existing modules
-                    new_config
-                        .modules
-                        .right_modules
-                        .iter()
-                        .position(|m| {
-                            default_order
-                                .iter()
-                                .position(|&dm| dm == m.as_str())
-                                .map(|existing_idx| existing_idx > target_idx)
-                                .unwrap_or(false)
-                        })
-                        .unwrap_or(new_config.modules.right_modules.len())
-                })
-                .unwrap_or(new_config.modules.right_modules.len());
-
-            new_config
-                .modules
-                .right_modules
-                .insert(insert_pos, module_id.to_string());
+            let insert_pos = find_module_insert_position(&new_config.modules.right_modules, module_id);
+            new_config.modules.right_modules.insert(insert_pos, module_id.to_string());
             info!("Enabled module: {}", module_id);
         }
 
@@ -1801,8 +1783,6 @@ const CLOCK_DATE: u32 = 2003;
 const CLOCK_DAY: u32 = 2004;
 
 // Menu IDs for system info
-const SYSINFO_CPU: u32 = 2101;
-const SYSINFO_MEM: u32 = 2102;
 const SYSINFO_SHOW_GRAPH: u32 = 2103; // show as moving graph
 
 // Menu IDs for volume
@@ -1849,343 +1829,155 @@ const APP_RESET: u32 = 2505;
 const APP_EXIT: u32 = 2504;
 
 fn show_clock_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, CLOCK_24H, "24-Hour Format", config.modules.clock.format_24h);
+        append_menu_item(menu, CLOCK_SECONDS, "Show Seconds", config.modules.clock.show_seconds);
+        append_menu_item(menu, CLOCK_DATE, "Show Date", config.modules.clock.show_date);
+        append_menu_item(menu, CLOCK_DAY, "Show Day of Week", config.modules.clock.show_day);
+        append_menu_item(menu, CLOCK_CENTER, "Center Clock", config.modules.clock.center);
+    });
 
-        append_menu_item(
-            menu,
-            CLOCK_24H,
-            "24-Hour Format",
-            config.modules.clock.format_24h,
-        );
-        append_menu_item(
-            menu,
-            CLOCK_SECONDS,
-            "Show Seconds",
-            config.modules.clock.show_seconds,
-        );
-        append_menu_item(
-            menu,
-            CLOCK_DATE,
-            "Show Date",
-            config.modules.clock.show_date,
-        );
-        append_menu_item(
-            menu,
-            CLOCK_DAY,
-            "Show Day of Week",
-            config.modules.clock.show_day,
-        );
-        append_menu_item(
-            menu,
-            CLOCK_CENTER,
-            "Center Clock",
-            config.modules.clock.center,
-        );
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Clock menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Clock menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_battery_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, BAT_SHOW_PCT, "Show Percentage", config.modules.battery.show_percentage);
+        append_menu_item(menu, BAT_SHOW_TIME, "Show Time Remaining", config.modules.battery.show_time_remaining);
+    });
 
-        append_menu_item(
-            menu,
-            BAT_SHOW_PCT,
-            "Show Percentage",
-            config.modules.battery.show_percentage,
-        );
-        append_menu_item(
-            menu,
-            BAT_SHOW_TIME,
-            "Show Time Remaining",
-            config.modules.battery.show_time_remaining,
-        );
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Battery menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Battery menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_volume_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
-
-        append_menu_item(
-            menu,
-            VOL_SHOW_PCT,
-            "Show Percentage",
-            config.modules.volume.show_percentage,
-        );
-        AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
-        
-        // Get actual mute state from volume module
-        let mut is_muted = false;
-        with_renderer(|renderer| {
-            if let Some(module) = renderer.module_registry.get("volume") {
-                if let Some(vm) = module.as_any().downcast_ref::<crate::modules::volume::VolumeModule>() {
-                    is_muted = vm.is_muted();
-                }
+    // Get actual mute state from volume module
+    let mut is_muted = false;
+    with_renderer(|renderer| {
+        if let Some(module) = renderer.module_registry.get("volume") {
+            if let Some(vm) = module.as_any().downcast_ref::<crate::modules::volume::VolumeModule>() {
+                is_muted = vm.is_muted();
             }
-        });
-        append_menu_item(menu, VOL_MUTE, "Mute", is_muted);
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Volume menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
         }
+    });
+
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, VOL_SHOW_PCT, "Show Percentage", config.modules.volume.show_percentage);
+        unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None).ok(); }
+        append_menu_item(menu, VOL_MUTE, "Mute", is_muted);
+    });
+
+    if cmd != 0 {
+        info!("Volume menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_network_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, NET_SHOW_NAME, "Show Network Name", config.modules.network.show_name);
+        append_menu_item(menu, NET_SHOW_SPEED, "Show Speed (MB/s)", config.modules.network.show_speed);
+    });
 
-        append_menu_item(
-            menu,
-            NET_SHOW_NAME,
-            "Show Network Name",
-            config.modules.network.show_name,
-        );
-        append_menu_item(
-            menu,
-            NET_SHOW_SPEED,
-            "Show Speed (MB/s)",
-            config.modules.network.show_speed,
-        );
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Network menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Network menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_disk_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
-
-        // Add dynamic list of disks
-        let mut disks: Vec<(String, String)> = Vec::new(); // (display, mount)
-        with_renderer(|renderer| {
-            if let Some(module) = renderer.module_registry.get("disk") {
-                if let Some(dm) = module
-                    .as_any()
-                    .downcast_ref::<crate::modules::disk::DiskModule>()
-                {
-                    for d in dm.get_disks() {
-                        let label = if d.mount_point.is_empty() {
-                            d.name.clone()
-                        } else {
-                            d.mount_point.clone()
-                        };
-                        disks.push((label, d.mount_point.clone()));
-                    }
+    // Get dynamic list of disks
+    let mut disks: Vec<(String, String)> = Vec::new();
+    with_renderer(|renderer| {
+        if let Some(module) = renderer.module_registry.get("disk") {
+            if let Some(dm) = module.as_any().downcast_ref::<crate::modules::disk::DiskModule>() {
+                for d in dm.get_disks() {
+                    let label = if d.mount_point.is_empty() { d.name.clone() } else { d.mount_point.clone() };
+                    disks.push((label, d.mount_point.clone()));
                 }
             }
-        });
+        }
+    });
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
         for (i, (label, mount)) in disks.iter().enumerate() {
             let id = DISK_SELECT_BASE + i as u32;
             append_menu_item(menu, id, label, mount == &config.modules.disk.primary_disk);
         }
+    });
 
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Disk menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Disk menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_clipboard_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
-
-        // Gather latest clipboard history from the module
-        let mut history: Vec<String> = Vec::new();
-        with_renderer(|renderer| {
-            if let Some(module) = renderer.module_registry.get("clipboard") {
-                if let Some(cm) = module
-                    .as_any()
-                    .downcast_ref::<crate::modules::clipboard::ClipboardModule>()
-                {
-                    history = cm.get_history();
-                }
+    // Gather latest clipboard history from the module
+    let mut history: Vec<String> = Vec::new();
+    with_renderer(|renderer| {
+        if let Some(module) = renderer.module_registry.get("clipboard") {
+            if let Some(cm) = module.as_any().downcast_ref::<crate::modules::clipboard::ClipboardModule>() {
+                history = cm.get_history();
             }
-        });
+        }
+    });
 
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
         if history.is_empty() {
             append_menu_item(menu, CLIPBOARD_BASE, "No clipboard history", false);
         } else {
-            for (i, entry) in history.iter().enumerate() {
-                if i >= 10 {
-                    break;
-                }
+            for (i, entry) in history.iter().take(10).enumerate() {
                 let label = crate::utils::truncate_string(entry, 40);
-                let id = CLIPBOARD_BASE + i as u32;
-                append_menu_item(menu, id, &label, i == 0);
+                append_menu_item(menu, CLIPBOARD_BASE + i as u32, &label, i == 0);
             }
         }
+    });
 
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Clipboard menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Clipboard menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_sysinfo_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
-
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
         // CPU and Memory are always shown; do not expose toggles to the user.
-        append_menu_item(
-            menu,
-            SYSINFO_SHOW_GRAPH,
-            "Show Graph",
-            config.modules.system_info.show_graph,
-        );
+        append_menu_item(menu, SYSINFO_SHOW_GRAPH, "Show Graph", config.modules.system_info.show_graph);
+    });
 
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Sysinfo menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Sysinfo menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
@@ -2287,177 +2079,73 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
 }
 
 fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
-
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
         append_menu_item(menu, APP_ABOUT, "About TopBar", false);
-        AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
+        unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None).ok(); }
         append_menu_item(menu, APP_SETTINGS, "Open Config File", false);
         append_menu_item(menu, APP_RELOAD, "Reload Config", false);
         append_menu_item(menu, APP_RESET, "Reset to Defaults", false);
-        AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
+        unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None).ok(); }
         append_menu_item(menu, APP_EXIT, "Exit TopBar", false);
+    });
 
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("App menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("App menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_gpu_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
-
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
         // GPU usage is always shown; do not expose a toggle in the menu.
-        append_menu_item(
-            menu,
-            GPU_SHOW_GRAPH,
-            "Show Graph",
-            config.modules.gpu.show_graph,
-        );
+        append_menu_item(menu, GPU_SHOW_GRAPH, "Show Graph", config.modules.gpu.show_graph);
+    });
 
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("GPU menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("GPU menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_keyboard_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, KEYBOARD_SHOW_FULL, "Show Full Language Name", config.modules.keyboard_layout.show_full_name);
+    });
 
-        append_menu_item(
-            menu,
-            KEYBOARD_SHOW_FULL,
-            "Show Full Language Name",
-            config.modules.keyboard_layout.show_full_name,
-        );
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Keyboard menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Keyboard menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_uptime_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
-
-        let _config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Uptime menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    // Currently no settings for uptime module
+    let cmd = show_popup_menu(hwnd, x, y, |_menu| {});
+    if cmd != 0 {
+        info!("Uptime menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }
 
 fn show_bluetooth_menu(hwnd: HWND, x: i32, y: i32) {
-    unsafe {
-        let menu = CreatePopupMenu().unwrap_or_default();
-        if menu.is_invalid() {
-            return;
-        }
+    let config = get_window_state()
+        .map(|s| s.read().config.clone())
+        .unwrap_or_default();
 
-        let config = get_window_state()
-            .map(|s| s.read().config.clone())
-            .unwrap_or_default();
+    let cmd = show_popup_menu(hwnd, x, y, |menu| {
+        append_menu_item(menu, BLUETOOTH_SHOW_COUNT, "Show Device Count", config.modules.bluetooth.show_device_count);
+    });
 
-        append_menu_item(
-            menu,
-            BLUETOOTH_SHOW_COUNT,
-            "Show Device Count",
-            config.modules.bluetooth.show_device_count,
-        );
-
-        let _ = SetForegroundWindow(hwnd);
-        let cmd = TrackPopupMenu(
-            menu,
-            TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
-            x,
-            y,
-            0,
-            hwnd,
-            None,
-        );
-        DestroyMenu(menu).ok();
-
-        info!("Bluetooth menu returned cmd: {}", cmd.0);
-        if cmd.0 != 0 {
-            handle_menu_command(hwnd, cmd.0 as u32);
-        }
+    if cmd != 0 {
+        info!("Bluetooth menu returned cmd: {}", cmd);
+        handle_menu_command(hwnd, cmd);
     }
 }

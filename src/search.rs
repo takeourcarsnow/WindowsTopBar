@@ -37,11 +37,6 @@ pub fn is_index_ready() -> bool {
     }
 }
 
-/// Check if we're in the building phase (sorting/FST creation)
-pub fn is_building() -> bool {
-    IS_BUILDING.load(Ordering::Relaxed)
-}
-
 /// Get current scanned file count (for progress display)
 pub fn scanned_count() -> usize {
     SCANNED_COUNT.load(Ordering::Relaxed)

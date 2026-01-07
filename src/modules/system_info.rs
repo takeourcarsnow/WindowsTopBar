@@ -130,22 +130,6 @@ impl SystemInfoModule {
     pub fn memory_history(&self) -> Vec<f32> {
         self.memory_history.iter().copied().collect()
     }
-
-    /// Get battery-aware update multiplier (2x on battery, 1x on AC)
-    fn get_battery_multiplier(&self) -> u64 {
-        // Simple battery detection using Windows API
-        unsafe {
-            use windows::Win32::System::Power::GetSystemPowerStatus;
-            let mut status = windows::Win32::System::Power::SYSTEM_POWER_STATUS::default();
-            if GetSystemPowerStatus(&mut status).is_ok() {
-                // ACLineStatus: 0 = offline, 1 = online, 255 = unknown
-                if status.ACLineStatus == 0 {
-                    return 2; // On battery, update less frequently
-                }
-            }
-        }
-        1 // On AC power or unknown, use normal interval
-    }
 }
 
 impl Default for SystemInfoModule {
@@ -171,8 +155,7 @@ impl Module for SystemInfoModule {
     fn update(&mut self, config: &crate::config::Config) {
         // Use configurable update interval from config, with battery optimization
         let base_interval = config.modules.system_info.update_interval_ms;
-        let battery_multiplier = self.get_battery_multiplier();
-        let effective_interval = base_interval * battery_multiplier;
+        let effective_interval = base_interval * crate::utils::battery_update_multiplier();
         
         if self.last_update.elapsed().as_millis() >= effective_interval as u128 {
             self.force_update();

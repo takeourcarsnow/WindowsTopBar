@@ -381,6 +381,25 @@ pub fn is_elevated() -> bool {
     }
 }
 
+/// Check if the system is running on battery power
+pub fn is_on_battery() -> bool {
+    unsafe {
+        use windows::Win32::System::Power::GetSystemPowerStatus;
+        let mut status = windows::Win32::System::Power::SYSTEM_POWER_STATUS::default();
+        if GetSystemPowerStatus(&mut status).is_ok() {
+            // ACLineStatus: 0 = offline (battery), 1 = online, 255 = unknown
+            return status.ACLineStatus == 0;
+        }
+    }
+    false
+}
+
+/// Get battery-aware update multiplier (2x on battery, 1x on AC)
+/// Use this to slow down updates when on battery to save power.
+pub fn battery_update_multiplier() -> u64 {
+    if is_on_battery() { 2 } else { 1 }
+}
+
 /// Enable dark mode for Windows context menus
 /// This uses undocumented Windows APIs to enable dark mode for popup menus
 pub fn enable_dark_mode_for_app(enable: bool) {

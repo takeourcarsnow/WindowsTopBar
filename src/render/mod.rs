@@ -463,232 +463,43 @@ impl Renderer {
                                 graph_width + item_padding * 2,
                                 graph_height,
                             );
-                            unsafe {
-                                // Draw directly on the bar; no background fill so graph visuals are clean
-                                if let Some(module) = self.module_registry.get("system_info") {
-                                    use crate::modules::system_info::SystemInfoModule;
+                            
+                            // Draw system info graphs (CPU and RAM)
+                            if let Some(module) = self.module_registry.get("system_info") {
+                                use crate::modules::system_info::SystemInfoModule;
+                                let max_points = (rect.width - item_padding * 2).max(1) as usize;
 
-                                    // Prefer drawing both CPU and RAM graphs when possible
-                                    if let Some(si) = module.as_any().downcast_ref::<SystemInfoModule>() {
-                                        let cpu_vals = si.cpu_history();
-                                        let mem_vals = si.memory_history();
+                                if let Some(si) = module.as_any().downcast_ref::<SystemInfoModule>() {
+                                    let cpu_bars = Self::downsample_values(si.cpu_history(), max_points);
+                                    let mem_bars = Self::downsample_values(si.memory_history(), max_points);
 
-                                        // If either series is non-empty, draw both (downsampling to pixel width)
-                                        if !cpu_vals.is_empty() || !mem_vals.is_empty() {
-                                            let inner_w = rect.width - item_padding * 2;
-                                            let inner_h = rect.height - 4;
-                                            let max_bars = inner_w.max(1) as usize;
+                                    self.draw_line_graph(hdc, &cpu_bars, &rect, item_padding, theme.text_primary.colorref());
+                                    self.draw_line_graph(hdc, &mem_bars, &rect, item_padding, theme.text_secondary.colorref());
 
-                                            // Helper: downsample a series to max_bars by averaging chunks
-                                            let downsample = |vals: Vec<f32>| -> Vec<f32> {
-                                                if vals.len() <= max_bars {
-                                                    vals
-                                                } else {
-                                                    let mut out = Vec::with_capacity(max_bars);
-                                                    let chunk = vals.len() / max_bars;
-                                                    let mut idx = 0usize;
-                                                    for _ in 0..max_bars {
-                                                        let end = (idx + chunk).min(vals.len());
-                                                        let slice = &vals[idx..end];
-                                                        if !slice.is_empty() {
-                                                            let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
-                                                            out.push(avg);
-                                                        } else {
-                                                            out.push(0.0);
-                                                        }
-                                                        idx = end;
-                                                    }
-                                                    if idx < vals.len() {
-                                                        let mut rem_sum = 0.0f32;
-                                                        let mut rem_count = 0usize;
-                                                        for i in idx..vals.len() {
-                                                            rem_sum += vals[i];
-                                                            rem_count += 1;
-                                                        }
-                                                        if rem_count > 0 && !out.is_empty() {
-                                                            let last = out.last_mut().unwrap();
-                                                            *last = (*last + rem_sum / rem_count as f32) / 2.0;
-                                                        }
-                                                    }
-                                                    out
-                                                }
-                                            };
-
-                                            let cpu_bars = downsample(cpu_vals);
-                                            let mem_bars = downsample(mem_vals);
-
-                                            // Draw CPU line
-                                            if !cpu_bars.is_empty() {
-                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(cpu_bars.len());
-                                                let step = inner_w as f32 / cpu_bars.len() as f32;
-                                                for (i, v) in cpu_bars.iter().enumerate() {
-                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
-                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
-                                                }
-
-                                                if points.len() == 1 {
-                                                    points.push(points[0]);
-                                                }
-
-                                                unsafe {
-                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_primary.colorref());
-                                                    let old_pen = SelectObject(hdc, pen);
-
-                                                    let mut first = true;
-                                                    for p in &points {
-                                                        if first {
-                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
-                                                            first = false;
-                                                        } else {
-                                                            let _ = LineTo(hdc, p.x, p.y);
-                                                        }
-                                                    }
-
-                                                    let _ = SelectObject(hdc, old_pen);
-                                                    let _ = DeleteObject(pen);
-                                                }
-                                            }
-
-                                            // Draw RAM line (secondary color)
-                                            if !mem_bars.is_empty() {
-                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(mem_bars.len());
-                                                let step = inner_w as f32 / mem_bars.len() as f32;
-                                                for (i, v) in mem_bars.iter().enumerate() {
-                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
-                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
-                                                }
-
-                                                if points.len() == 1 {
-                                                    points.push(points[0]);
-                                                }
-
-                                                unsafe {
-                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
-                                                    let old_pen = SelectObject(hdc, pen);
-
-                                                    let mut first = true;
-                                                    for p in &points {
-                                                        if first {
-                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
-                                                            first = false;
-                                                        } else {
-                                                            let _ = LineTo(hdc, p.x, p.y);
-                                                        }
-                                                    }
-
-                                                    let _ = SelectObject(hdc, old_pen);
-                                                    let _ = DeleteObject(pen);
-                                                }
-                                            }
-
-                                            // Small labels for CPU and RAM
-                                            unsafe {
-                                                let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
-                                                let prev_font = SelectObject(hdc, small_font);
-                                                let _ = SetTextColor(hdc, theme.text_primary.colorref());
-                                                let label_x = rect.x + item_padding + 2;
-                                                let label_y = rect.y + 2;
-                                                self.draw_text(hdc, label_x, label_y, "CPU");
-                                                let _ = SetTextColor(hdc, theme.text_secondary.colorref());
-                                                self.draw_text(hdc, label_x + self.scale(30), label_y, "RAM");
-                                                let _ = SelectObject(hdc, prev_font);
-                                                let _ = DeleteObject(small_font);
-                                            }
-                                        }
-                                    } else if let Some(values) = module.graph_values() {
-                                        // Fallback to previous single-series behavior
-                                        if !values.is_empty() {
-                                            let inner_w = rect.width - item_padding * 2;
-                                            let inner_h = rect.height - 4;
-                                            let max_bars = inner_w.max(1) as usize;
-
-                                            // Downsample or use full values depending on available pixels
-                                            let bars: Vec<f32> = if values.len() <= max_bars {
-                                                values
-                                            } else {
-                                                let mut out = Vec::with_capacity(max_bars);
-                                                let chunk = values.len() / max_bars;
-                                                let mut idx = 0usize;
-                                                for _ in 0..max_bars {
-                                                    let end = (idx + chunk).min(values.len());
-                                                    let slice = &values[idx..end];
-                                                    if !slice.is_empty() {
-                                                        let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
-                                                        out.push(avg);
-                                                    } else {
-                                                        out.push(0.0);
-                                                    }
-                                                    idx = end;
-                                                }
-                                                // If any remaining samples, fold them into the last bar
-                                                if idx < values.len() {
-                                                    let mut rem_sum = 0.0f32;
-                                                    let mut rem_count = 0usize;
-                                                    for i in idx..values.len() {
-                                                        rem_sum += values[i];
-                                                        rem_count += 1;
-                                                    }
-                                                    if rem_count > 0 && !out.is_empty() {
-                                                        let last = out.last_mut().unwrap();
-                                                        *last = (*last + rem_sum / rem_count as f32) / 2.0;
-                                                    }
-                                                }
-                                                out
-                                            };
-
-                                            // Convert values into points and draw a simple historical line (polyline)
-                                            // (keeps the downsampling logic above but replaces bar rendering with a single line)
-                                            if !bars.is_empty() {
-                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(bars.len());
-                                                let step = inner_w as f32 / bars.len() as f32;
-                                                for (i, v) in bars.iter().enumerate() {
-                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
-                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
-                                                }
-
-                                                if points.len() == 1 {
-                                                    // Duplicate single point so MoveTo/LineTo draws a flat line
-                                                    points.push(points[0]);
-                                                }
-
-                                                unsafe {
-                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
-                                                    let old_pen = SelectObject(hdc, pen);
-
-                                                    let mut first = true;
-                                                    for p in &points {
-                                                        if first {
-                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
-                                                            first = false;
-                                                        } else {
-                                                            let _ = LineTo(hdc, p.x, p.y);
-                                                        }
-                                                    }
-
-                                                    let _ = SelectObject(hdc, old_pen);
-                                                    let _ = DeleteObject(pen);
-
-                                                    // Small label indicating which graph this is
-                                                    let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
-                                                    let prev_font = SelectObject(hdc, small_font);
-                                                    let _ = SetTextColor(hdc, theme.text_secondary.colorref());
-                                                    let label_x = rect.x + item_padding + 2;
-                                                    let label_y = rect.y + 2;
-                                                    self.draw_text(hdc, label_x, label_y, "CPU");
-                                                    let _ = SelectObject(hdc, prev_font);
-                                                    let _ = DeleteObject(small_font);
-                                                }
-                                            }
-                                        }
+                                    // Labels
+                                    unsafe {
+                                        let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                        let prev_font = SelectObject(hdc, small_font);
+                                        let label_x = rect.x + item_padding + 2;
+                                        let label_y = rect.y + 2;
+                                        let _ = SetTextColor(hdc, theme.text_primary.colorref());
+                                        self.draw_text(hdc, label_x, label_y, "CPU");
+                                        let _ = SetTextColor(hdc, theme.text_secondary.colorref());
+                                        self.draw_text(hdc, label_x + self.scale(30), label_y, "RAM");
+                                        let _ = SelectObject(hdc, prev_font);
+                                        let _ = DeleteObject(small_font);
+                                    }
+                                } else if let Some(values) = module.graph_values() {
+                                    let bars = Self::downsample_values(values, max_points);
+                                    self.draw_line_graph(hdc, &bars, &rect, item_padding, theme.text_secondary.colorref());
+                                    
+                                    unsafe {
+                                        let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                        let prev_font = SelectObject(hdc, small_font);
+                                        let _ = SetTextColor(hdc, theme.text_secondary.colorref());
+                                        self.draw_text(hdc, rect.x + item_padding + 2, rect.y + 2, "CPU");
+                                        let _ = SelectObject(hdc, prev_font);
+                                        let _ = DeleteObject(small_font);
                                     }
                                 }
                             }
@@ -796,92 +607,21 @@ impl Renderer {
                                 graph_width + item_padding * 2,
                                 graph_height,
                             );
-                            unsafe {
-                                // Draw directly on the bar; no background fill so graph visuals are clean
-                                if let Some(module) = self.module_registry.get("gpu") {
-                                    if let Some(values) = module.graph_values() {
-                                        if !values.is_empty() {
-                                            let inner_w = rect.width - item_padding * 2;
-                                            let inner_h = rect.height - 4;
-                                            let max_bars = inner_w.max(1) as usize;
+                            
+                            // Draw GPU graph
+                            if let Some(module) = self.module_registry.get("gpu") {
+                                if let Some(values) = module.graph_values() {
+                                    let max_points = (rect.width - item_padding * 2).max(1) as usize;
+                                    let bars = Self::downsample_values(values, max_points);
+                                    self.draw_line_graph(hdc, &bars, &rect, item_padding, theme.text_secondary.colorref());
 
-                                            let bars: Vec<f32> = if values.len() <= max_bars {
-                                                values
-                                            } else {
-                                                let mut out = Vec::with_capacity(max_bars);
-                                                let chunk = values.len() / max_bars;
-                                                let mut idx = 0usize;
-                                                for _ in 0..max_bars {
-                                                    let end = (idx + chunk).min(values.len());
-                                                    let slice = &values[idx..end];
-                                                    if !slice.is_empty() {
-                                                        let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
-                                                        out.push(avg);
-                                                    } else {
-                                                        out.push(0.0);
-                                                    }
-                                                    idx = end;
-                                                }
-                                                if idx < values.len() {
-                                                    let mut rem_sum = 0.0f32;
-                                                    let mut rem_count = 0usize;
-                                                    for i in idx..values.len() {
-                                                        rem_sum += values[i];
-                                                        rem_count += 1;
-                                                    }
-                                                    if rem_count > 0 && !out.is_empty() {
-                                                        let last = out.last_mut().unwrap();
-                                                        *last = (*last + rem_sum / rem_count as f32) / 2.0;
-                                                    }
-                                                }
-                                                out
-                                            };
-
-                                            // Convert values into points and draw a simple historical line (polyline)
-                                            if !bars.is_empty() {
-                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(bars.len());
-                                                let step = inner_w as f32 / bars.len() as f32;
-                                                for (i, v) in bars.iter().enumerate() {
-                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
-                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
-                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
-                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
-                                                }
-
-                                                if points.len() == 1 {
-                                                    points.push(points[0]);
-                                                }
-
-                                                unsafe {
-                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
-                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
-                                                    let old_pen = SelectObject(hdc, pen);
-
-                                                    let mut first = true;
-                                                    for p in &points {
-                                                        if first {
-                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
-                                                            first = false;
-                                                        } else {
-                                                            let _ = LineTo(hdc, p.x, p.y);
-                                                        }
-                                                    }
-
-                                                    let _ = SelectObject(hdc, old_pen);
-                                                    let _ = DeleteObject(pen);
-
-                                                    // Small label indicating which graph this is
-                                                    let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
-                                                    let prev_font = SelectObject(hdc, small_font);
-                                                    let _ = SetTextColor(hdc, theme.text_secondary.colorref());
-                                                    let label_x = rect.x + item_padding + 2;
-                                                    let label_y = rect.y + 2;
-                                                    self.draw_text(hdc, label_x, label_y, "GPU");
-                                                    let _ = SelectObject(hdc, prev_font);
-                                                    let _ = DeleteObject(small_font);
-                                                }
-                                            }
-                                        }
+                                    unsafe {
+                                        let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                        let prev_font = SelectObject(hdc, small_font);
+                                        let _ = SetTextColor(hdc, theme.text_secondary.colorref());
+                                        self.draw_text(hdc, rect.x + item_padding + 2, rect.y + 2, "GPU");
+                                        let _ = SelectObject(hdc, prev_font);
+                                        let _ = DeleteObject(small_font);
                                     }
                                 }
                             }
@@ -1336,6 +1076,79 @@ impl Renderer {
         }
 
         Rect::new(x, y, width, height)
+    }
+
+    /// Downsample a series of values to fit within max_points by averaging chunks
+    fn downsample_values(values: Vec<f32>, max_points: usize) -> Vec<f32> {
+        if values.len() <= max_points || max_points == 0 {
+            return values;
+        }
+        
+        let mut out = Vec::with_capacity(max_points);
+        let chunk = values.len() / max_points;
+        let mut idx = 0usize;
+        
+        for _ in 0..max_points {
+            let end = (idx + chunk).min(values.len());
+            let slice = &values[idx..end];
+            let avg = if slice.is_empty() { 0.0 } else { slice.iter().sum::<f32>() / slice.len() as f32 };
+            out.push(avg);
+            idx = end;
+        }
+        
+        // Fold remaining samples into the last value
+        if idx < values.len() && !out.is_empty() {
+            let rem_avg = values[idx..].iter().sum::<f32>() / (values.len() - idx) as f32;
+            if let Some(last) = out.last_mut() {
+                *last = (*last + rem_avg) / 2.0;
+            }
+        }
+        
+        out
+    }
+
+    /// Draw a line graph from values (0-100) within a rectangle
+    fn draw_line_graph(&self, hdc: HDC, values: &[f32], rect: &Rect, padding: i32, color: windows::Win32::Foundation::COLORREF) {
+        if values.is_empty() {
+            return;
+        }
+        
+        let inner_w = rect.width - padding * 2;
+        let inner_h = rect.height - 4;
+        
+        let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(values.len());
+        let step = if values.len() > 1 { inner_w as f32 / (values.len() - 1) as f32 } else { 0.0 };
+        
+        for (i, v) in values.iter().enumerate() {
+            let clamped = v.clamp(0.0, 100.0) / 100.0;
+            let px = rect.x + padding + (i as f32 * step) as i32;
+            let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+            points.push(windows::Win32::Foundation::POINT { x: px, y: py });
+        }
+        
+        // Ensure at least 2 points for drawing
+        if points.len() == 1 {
+            points.push(points[0]);
+        }
+        
+        unsafe {
+            use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
+            let pen = CreatePen(PS_SOLID, 1, color);
+            let old_pen = SelectObject(hdc, pen);
+            
+            let mut first = true;
+            for p in &points {
+                if first {
+                    let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
+                    first = false;
+                } else {
+                    let _ = LineTo(hdc, p.x, p.y);
+                }
+            }
+            
+            let _ = SelectObject(hdc, old_pen);
+            let _ = DeleteObject(pen);
+        }
     }
 
     /// Measure text dimensions
