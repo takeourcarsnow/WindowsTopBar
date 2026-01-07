@@ -637,12 +637,12 @@ impl Renderer {
                                 if let Some(values) = module.graph_values() {
                                     let max_points = (rect.width - item_padding * 2).max(1) as usize;
                                     let bars = Self::downsample_values(values, max_points);
-                                    self.draw_line_graph(hdc, &bars, &rect, item_padding, theme.text_secondary.colorref());
+                                    self.draw_line_graph(hdc, &bars, &rect, item_padding, theme.text_primary.colorref());
 
                                     unsafe {
                                         let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
                                         let prev_font = SelectObject(hdc, small_font);
-                                        let _ = SetTextColor(hdc, theme.text_secondary.colorref());
+                                        let _ = SetTextColor(hdc, theme.text_primary.colorref());
                                         self.draw_text(hdc, rect.x + item_padding + 2, rect.y + 2, "GPU");
                                         let _ = SelectObject(hdc, prev_font);
                                         let _ = DeleteObject(small_font);
