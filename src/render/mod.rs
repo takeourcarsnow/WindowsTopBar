@@ -448,7 +448,143 @@ impl Renderer {
                             unsafe {
                                 // Draw directly on the bar; no background fill so graph visuals are clean
                                 if let Some(module) = self.module_registry.get("system_info") {
-                                    if let Some(values) = module.graph_values() {
+                                    use crate::modules::system_info::SystemInfoModule;
+
+                                    // Prefer drawing both CPU and RAM graphs when possible
+                                    if let Some(si) = module.as_any().downcast_ref::<SystemInfoModule>() {
+                                        let cpu_vals = si.cpu_history();
+                                        let mem_vals = si.memory_history();
+
+                                        // If either series is non-empty, draw both (downsampling to pixel width)
+                                        if !cpu_vals.is_empty() || !mem_vals.is_empty() {
+                                            let inner_w = rect.width - item_padding * 2;
+                                            let inner_h = rect.height - 4;
+                                            let max_bars = inner_w.max(1) as usize;
+
+                                            // Helper: downsample a series to max_bars by averaging chunks
+                                            let downsample = |vals: Vec<f32>| -> Vec<f32> {
+                                                if vals.len() <= max_bars {
+                                                    vals
+                                                } else {
+                                                    let mut out = Vec::with_capacity(max_bars);
+                                                    let chunk = vals.len() / max_bars;
+                                                    let mut idx = 0usize;
+                                                    for _ in 0..max_bars {
+                                                        let end = (idx + chunk).min(vals.len());
+                                                        let slice = &vals[idx..end];
+                                                        if !slice.is_empty() {
+                                                            let avg = slice.iter().copied().sum::<f32>() / slice.len() as f32;
+                                                            out.push(avg);
+                                                        } else {
+                                                            out.push(0.0);
+                                                        }
+                                                        idx = end;
+                                                    }
+                                                    if idx < vals.len() {
+                                                        let mut rem_sum = 0.0f32;
+                                                        let mut rem_count = 0usize;
+                                                        for i in idx..vals.len() {
+                                                            rem_sum += vals[i];
+                                                            rem_count += 1;
+                                                        }
+                                                        if rem_count > 0 && !out.is_empty() {
+                                                            let last = out.last_mut().unwrap();
+                                                            *last = (*last + rem_sum / rem_count as f32) / 2.0;
+                                                        }
+                                                    }
+                                                    out
+                                                }
+                                            };
+
+                                            let cpu_bars = downsample(cpu_vals);
+                                            let mem_bars = downsample(mem_vals);
+
+                                            // Draw CPU line
+                                            if !cpu_bars.is_empty() {
+                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(cpu_bars.len());
+                                                let step = inner_w as f32 / cpu_bars.len() as f32;
+                                                for (i, v) in cpu_bars.iter().enumerate() {
+                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
+                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
+                                                }
+
+                                                if points.len() == 1 {
+                                                    points.push(points[0]);
+                                                }
+
+                                                unsafe {
+                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_primary.colorref());
+                                                    let old_pen = SelectObject(hdc, pen);
+
+                                                    let mut first = true;
+                                                    for p in &points {
+                                                        if first {
+                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
+                                                            first = false;
+                                                        } else {
+                                                            let _ = LineTo(hdc, p.x, p.y);
+                                                        }
+                                                    }
+
+                                                    let _ = SelectObject(hdc, old_pen);
+                                                    let _ = DeleteObject(pen);
+                                                }
+                                            }
+
+                                            // Draw RAM line (secondary color)
+                                            if !mem_bars.is_empty() {
+                                                let mut points: Vec<windows::Win32::Foundation::POINT> = Vec::with_capacity(mem_bars.len());
+                                                let step = inner_w as f32 / mem_bars.len() as f32;
+                                                for (i, v) in mem_bars.iter().enumerate() {
+                                                    let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                                    let px = rect.x + item_padding + (i as f32 * step) as i32;
+                                                    let py = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                                    points.push(windows::Win32::Foundation::POINT { x: px, y: py });
+                                                }
+
+                                                if points.len() == 1 {
+                                                    points.push(points[0]);
+                                                }
+
+                                                unsafe {
+                                                    use windows::Win32::Graphics::Gdi::{CreatePen, PS_SOLID, SelectObject, MoveToEx, LineTo};
+                                                    let pen = CreatePen(PS_SOLID, 1, theme.text_secondary.colorref());
+                                                    let old_pen = SelectObject(hdc, pen);
+
+                                                    let mut first = true;
+                                                    for p in &points {
+                                                        if first {
+                                                            let _ = MoveToEx(hdc, p.x, p.y, Some(std::ptr::null_mut()));
+                                                            first = false;
+                                                        } else {
+                                                            let _ = LineTo(hdc, p.x, p.y);
+                                                        }
+                                                    }
+
+                                                    let _ = SelectObject(hdc, old_pen);
+                                                    let _ = DeleteObject(pen);
+                                                }
+                                            }
+
+                                            // Small labels for CPU and RAM
+                                            unsafe {
+                                                let small_font = self.create_font("Segoe UI Variable Text", self.scale(9), false);
+                                                let prev_font = SelectObject(hdc, small_font);
+                                                let _ = SetTextColor(hdc, theme.text_primary.colorref());
+                                                let label_x = rect.x + item_padding + 2;
+                                                let label_y = rect.y + 2;
+                                                self.draw_text(hdc, label_x, label_y, "CPU");
+                                                let _ = SetTextColor(hdc, theme.text_secondary.colorref());
+                                                self.draw_text(hdc, label_x + self.scale(30), label_y, "RAM");
+                                                let _ = SelectObject(hdc, prev_font);
+                                                let _ = DeleteObject(small_font);
+                                            }
+                                        }
+                                    } else if let Some(values) = module.graph_values() {
+                                        // Fallback to previous single-series behavior
                                         if !values.is_empty() {
                                             let inner_w = rect.width - item_padding * 2;
                                             let inner_h = rect.height - 4;
