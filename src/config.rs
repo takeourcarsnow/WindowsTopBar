@@ -543,6 +543,8 @@ pub struct GpuConfig {
     pub show_memory: bool,
     /// Show temperature
     pub show_temperature: bool,
+    /// Show as a moving graph instead of percentage
+    pub show_graph: bool,
     /// Update interval in milliseconds
     pub update_interval_ms: u64,
 }
@@ -554,6 +556,7 @@ impl Default for GpuConfig {
             show_usage: true,
             show_memory: false,
             show_temperature: false,
+            show_graph: false,
             update_interval_ms: 2000,
         }
     }

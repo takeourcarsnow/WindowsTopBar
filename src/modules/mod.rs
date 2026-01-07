@@ -67,6 +67,11 @@ pub trait Module: Send + Sync {
 
     /// Cast to Any mutably for downcasting
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Optional helper for modules that provide graph data (percentages 0-100)
+    fn graph_values(&self) -> Option<Vec<f32>> {
+        None
+    }
 }
 
 /// Render context for modules

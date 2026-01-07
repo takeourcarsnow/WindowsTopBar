@@ -1,9 +1,11 @@
 //! GPU module for displaying GPU usage and temperature
 
 use std::time::Instant;
+use std::collections::VecDeque;
 
 use super::Module;
 use windows::core::Interface;
+
 
 /// GPU information
 #[derive(Debug, Clone, Default)]
@@ -22,6 +24,10 @@ pub struct GpuModule {
     show_usage: bool,
     show_memory: bool,
     show_temp: bool,
+    // histories for moving graphs (percentages or scaled values)
+    usage_history: VecDeque<f32>,
+    memory_history: VecDeque<f32>,
+    history_len: usize,
     last_update: Instant,
     update_interval_ms: u64,
 }
@@ -34,6 +40,9 @@ impl GpuModule {
             show_usage: true,
             show_memory: false,
             show_temp: false,
+            usage_history: VecDeque::with_capacity(60),
+            memory_history: VecDeque::with_capacity(60),
+            history_len: 60,
             last_update: Instant::now(),
             update_interval_ms: 2000,
         };
@@ -64,8 +73,34 @@ impl GpuModule {
     /// Force an immediate update
     fn force_update(&mut self) {
         self.query_gpu_info();
+
+        // Update histories
+        self.usage_history.push_back(self.gpu_info.usage);
+        if self.usage_history.len() > self.history_len {
+            self.usage_history.pop_front();
+        }
+
+        if self.gpu_info.memory_total > 0 {
+            let mem_pct = (self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as f32;
+            self.memory_history.push_back(mem_pct);
+            if self.memory_history.len() > self.history_len {
+                self.memory_history.pop_front();
+            }
+        }
+
         self.cached_text = self.build_display_text();
         self.last_update = Instant::now();
+    }
+
+
+    /// Get usage history (oldest to newest)
+    pub fn usage_history(&self) -> Vec<f32> {
+        self.usage_history.iter().copied().collect()
+    }
+
+    /// Get memory history (oldest to newest, percent)
+    pub fn memory_history(&self) -> Vec<f32> {
+        self.memory_history.iter().copied().collect()
     }
 
     /// Query GPU information using Windows APIs
@@ -279,27 +314,7 @@ impl GpuModule {
             parts.join("  ")
         }
     }
-
-    /// Get GPU usage percentage
-    pub fn gpu_usage(&self) -> f32 {
-        self.gpu_info.usage
-    }
-
-    /// Get GPU memory usage percentage
-    pub fn memory_usage(&self) -> f32 {
-        if self.gpu_info.memory_total > 0 {
-            (self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as f32
-        } else {
-            0.0
-        }
-    }
-
-    /// Get GPU temperature
-    pub fn temperature(&self) -> Option<f32> {
-        self.gpu_info.temperature
-    }
 }
-
 impl Default for GpuModule {
     fn default() -> Self {
         Self::new()
@@ -385,5 +400,9 @@ impl Module for GpuModule {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn graph_values(&self) -> Option<Vec<f32>> {
+        Some(self.usage_history())
     }
 }

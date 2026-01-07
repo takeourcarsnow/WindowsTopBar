@@ -2,6 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use std::collections::VecDeque;
 use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind, RefreshKind};
 
 use super::Module;
@@ -18,6 +19,10 @@ pub struct SystemInfoModule {
     memory_usage: f32,
     memory_used: u64,
     memory_total: u64,
+    // Histories for sparkline graphs
+    cpu_history: VecDeque<f32>,
+    memory_history: VecDeque<f32>,
+    history_len: usize,
     last_update: Instant,
     update_interval_ms: u64,
 }
@@ -40,6 +45,10 @@ impl SystemInfoModule {
             memory_usage: 0.0,
             memory_used: 0,
             memory_total: 0,
+            // history length for graph samples
+            cpu_history: VecDeque::with_capacity(60),
+            memory_history: VecDeque::with_capacity(60),
+            history_len: 60,
             last_update: Instant::now(),
             update_interval_ms: 2000,
         };
@@ -93,6 +102,17 @@ impl SystemInfoModule {
             parts.push(format!("MEM {:.0}%", self.memory_usage));
         }
 
+        // Update histories for graphs
+        self.cpu_history.push_back(self.cpu_usage);
+        if self.cpu_history.len() > self.history_len {
+            self.cpu_history.pop_front();
+        }
+
+        self.memory_history.push_back(self.memory_usage);
+        if self.memory_history.len() > self.history_len {
+            self.memory_history.pop_front();
+        }
+
         self.cached_text = parts.join("  ");
         self.last_update = Instant::now();
     }
@@ -105,6 +125,16 @@ impl SystemInfoModule {
     /// Get memory usage percentage
     pub fn memory_usage(&self) -> f32 {
         self.memory_usage
+    }
+
+    /// Get CPU history for graph (oldest to newest)
+    pub fn cpu_history(&self) -> Vec<f32> {
+        self.cpu_history.iter().copied().collect()
+    }
+
+    /// Get memory history for graph (oldest to newest)
+    pub fn memory_history(&self) -> Vec<f32> {
+        self.memory_history.iter().copied().collect()
     }
 }
 
@@ -165,5 +195,9 @@ impl Module for SystemInfoModule {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn graph_values(&self) -> Option<Vec<f32>> {
+        Some(self.cpu_history())
     }
 }

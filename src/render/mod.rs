@@ -258,19 +258,68 @@ impl Renderer {
                 x -= item_spacing;
             }
 
-            // System info (CPU/Memory)
+            // System info (CPU/Memory or graph)
             if right_modules.contains(&"system_info".to_string()) {
-                let sysinfo_text = self.module_registry
-                    .get("system_info")
-                    .map(|m| m.display_text(&*config))
-                    .unwrap_or_else(|| "CPU --  MEM --".to_string());
-                let (text_width, _) = self.measure_text(hdc, &sysinfo_text);
-                x -= text_width + item_padding * 2;
-                let sysinfo_rect = self.draw_module_text(
-                    hdc, x, bar_rect.height, &sysinfo_text, item_padding, theme, false
-                );
-                self.module_bounds.insert("system_info".to_string(), sysinfo_rect);
-                x -= item_spacing;
+                let show_graph = config.modules.system_info.show_graph;
+                if show_graph {
+                    let graph_width = self.scale(60);
+                    let graph_height = bar_rect.height - self.scale(8);
+                    x -= graph_width + item_padding * 2;
+
+                    let rect = Rect::new(x, (bar_rect.height - graph_height) / 2, graph_width + item_padding * 2, graph_height);
+                    unsafe {
+                        let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
+                        let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
+                        FillRect(hdc, &r, bg_brush);
+                        DeleteObject(bg_brush);
+
+                        if let Some(module) = self.module_registry.get("system_info") {
+                            if let Some(values) = module.graph_values() {
+                                if !values.is_empty() {
+                                    let len = values.len() as i32;
+                                    let inner_w = rect.width - item_padding * 2;
+                                    let inner_h = rect.height - 4;
+                                    let step = inner_w as f32 / (len.max(1) as f32);
+                                    let mut x_pos = rect.x + item_padding;
+
+                                    let mut points: Vec<(i32,i32)> = Vec::new();
+                                    for v in values.iter() {
+                                        let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                        let y = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                        points.push((x_pos, y));
+                                        x_pos += step as i32;
+                                    }
+
+                                    let pen = CreatePen(PS_SOLID, 2, theme.cpu_normal.to_colorref());
+                                    let old_pen = SelectObject(hdc, pen);
+                                    if let Some((sx, sy)) = points.first() {
+                                        MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                        for (px, py) in points.iter().skip(1) {
+                                            LineTo(hdc, *px, *py);
+                                        }
+                                    }
+                                    let _ = SelectObject(hdc, old_pen);
+                                    DeleteObject(pen);
+                                }
+                            }
+                        }
+                    }
+
+                    self.module_bounds.insert("system_info".to_string(), rect);
+                    x -= item_spacing;
+                } else {
+                    let sysinfo_text = self.module_registry
+                        .get("system_info")
+                        .map(|m| m.display_text(&*config))
+                        .unwrap_or_else(|| "CPU --  MEM --".to_string());
+                    let (text_width, _) = self.measure_text(hdc, &sysinfo_text);
+                    x -= text_width + item_padding * 2;
+                    let sysinfo_rect = self.draw_module_text(
+                        hdc, x, bar_rect.height, &sysinfo_text, item_padding, theme, false
+                    );
+                    self.module_bounds.insert("system_info".to_string(), sysinfo_rect);
+                    x -= item_spacing;
+                }
             }
 
             // Media controls
@@ -290,19 +339,73 @@ impl Renderer {
                 }
             }
 
-            // GPU usage
+            // GPU usage (text or graph)
             if right_modules.contains(&"gpu".to_string()) {
-                let gpu_text = self.module_registry
-                    .get("gpu")
-                    .map(|m| m.display_text(&*config))
-                    .unwrap_or_else(|| self.icons.get("gpu"));
-                let (text_width, _) = self.measure_text(hdc, &gpu_text);
-                x -= text_width + item_padding * 2;
-                let gpu_rect = self.draw_module_text(
-                    hdc, x, bar_rect.height, &gpu_text, item_padding, theme, false
-                );
-                self.module_bounds.insert("gpu".to_string(), gpu_rect);
-                x -= item_spacing;
+                let show_graph = config.modules.gpu.show_graph;
+                if show_graph {
+                    // Reserve a fixed width for the small sparkline
+                    let graph_width = self.scale(60);
+                    let graph_height = bar_rect.height - self.scale(8);
+                    x -= graph_width + item_padding * 2;
+
+                    // Draw graph background
+                    let rect = Rect::new(x, (bar_rect.height - graph_height) / 2, graph_width + item_padding * 2, graph_height);
+                    unsafe {
+                        let bg_brush = CreateSolidBrush(theme.background_secondary.to_colorref());
+                        let r = windows::Win32::Foundation::RECT { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
+                        FillRect(hdc, &r, bg_brush);
+                        DeleteObject(bg_brush);
+
+                        // Get history and draw polyline
+                        if let Some(module) = self.module_registry.get("gpu") {
+                            if let Some(values) = module.graph_values() {
+                                if !values.is_empty() {
+                                    let len = values.len() as i32;
+                                    let inner_w = rect.width - item_padding * 2;
+                                    let inner_h = rect.height - 4;
+                                    let step = inner_w as f32 / (len.max(1) as f32);
+                                    let mut x_pos = rect.x + item_padding;
+
+                                    // Normalize values to 0..1 based on 0..100
+                                    let mut points: Vec<(i32, i32)> = Vec::new();
+                                    for v in values.iter() {
+                                        let clamped = v.clamp(0.0, 100.0) / 100.0;
+                                        let y = rect.y + 2 + ((1.0 - clamped) * inner_h as f32) as i32;
+                                        points.push((x_pos, y));
+                                        x_pos += step as i32;
+                                    }
+
+                                    let pen = CreatePen(PS_SOLID, 2, theme.accent.to_colorref());
+                                    let old_pen = SelectObject(hdc, pen);
+                                    // Move to first
+                                    if let Some((sx, sy)) = points.first() {
+                                        MoveToEx(hdc, *sx, *sy, Some(std::ptr::null_mut()));
+                                        for (px, py) in points.iter().skip(1) {
+                                            LineTo(hdc, *px, *py);
+                                        }
+                                    }
+                                    let _ = SelectObject(hdc, old_pen);
+                                    DeleteObject(pen);
+                                }
+                            }
+                        }
+                    }
+
+                    self.module_bounds.insert("gpu".to_string(), rect);
+                    x -= item_spacing;
+                } else {
+                    let gpu_text = self.module_registry
+                        .get("gpu")
+                        .map(|m| m.display_text(&*config))
+                        .unwrap_or_else(|| self.icons.get("gpu"));
+                    let (text_width, _) = self.measure_text(hdc, &gpu_text);
+                    x -= text_width + item_padding * 2;
+                    let gpu_rect = self.draw_module_text(
+                        hdc, x, bar_rect.height, &gpu_text, item_padding, theme, false
+                    );
+                    self.module_bounds.insert("gpu".to_string(), gpu_rect);
+                    x -= item_spacing;
+                }
             }
 
             // Keyboard layout

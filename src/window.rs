@@ -643,6 +643,12 @@ const MENU_SHOW_KEYBOARD: u32 = 1008;
 const MENU_SHOW_UPTIME: u32 = 1009;
 const MENU_SHOW_BLUETOOTH: u32 = 1010;
 const MENU_SHOW_DISK: u32 = 1011;
+
+// GPU menu items
+const GPU_SHOW_USAGE: u32 = 2601;
+const GPU_SHOW_MEMORY: u32 = 2602;
+const GPU_SHOW_TEMP: u32 = 2603;
+const GPU_SHOW_GRAPH: u32 = 2604;
 const MENU_SEPARATOR: u32 = 1100;
 const MENU_SETTINGS: u32 = 1200;
 const MENU_RELOAD: u32 = 1201;
@@ -768,11 +774,13 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         // System info settings
         SYSINFO_CPU => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_cpu),
         SYSINFO_MEM => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_memory),
+        SYSINFO_SHOW_GRAPH => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_graph),
         
         // GPU settings
         GPU_SHOW_USAGE => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_usage),
         GPU_SHOW_MEMORY => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_memory),
         GPU_SHOW_TEMP => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_temperature),
+        GPU_SHOW_GRAPH => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_graph),
         
         // Keyboard layout settings
         KEYBOARD_SHOW_FULL => toggle_config_bool(hwnd, |c| &mut c.modules.keyboard_layout.show_full_name),
@@ -984,6 +992,7 @@ const CLOCK_DAY: u32 = 2004;
 // Menu IDs for system info
 const SYSINFO_CPU: u32 = 2101;
 const SYSINFO_MEM: u32 = 2102;
+const SYSINFO_SHOW_GRAPH: u32 = 2103; // show as moving graph
 
 // Menu IDs for volume
 const VOL_SHOW_PCT: u32 = 2201;
@@ -995,11 +1004,6 @@ const NET_SHOW_NAME: u32 = 2301;
 // Menu IDs for battery
 const BAT_SHOW_PCT: u32 = 2401;
 const BAT_SHOW_TIME: u32 = 2402;
-
-// Menu IDs for GPU
-const GPU_SHOW_USAGE: u32 = 2601;
-const GPU_SHOW_MEMORY: u32 = 2602;
-const GPU_SHOW_TEMP: u32 = 2603;
 
 // Menu IDs for keyboard layout
 const KEYBOARD_SHOW_FULL: u32 = 2701;
@@ -1128,6 +1132,7 @@ fn show_sysinfo_menu(hwnd: HWND, x: i32, y: i32) {
         
         append_menu_item(menu, SYSINFO_CPU, "Show CPU Usage", config.modules.system_info.show_cpu);
         append_menu_item(menu, SYSINFO_MEM, "Show Memory Usage", config.modules.system_info.show_memory);
+        append_menu_item(menu, SYSINFO_SHOW_GRAPH, "Show Graph", config.modules.system_info.show_graph);
         
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
@@ -1172,9 +1177,10 @@ fn show_gpu_menu(hwnd: HWND, x: i32, y: i32) {
             .map(|s| s.read().config.clone())
             .unwrap_or_default();
         
-        append_menu_item(menu, GPU_SHOW_USAGE, "Show GPU Usage", config.modules.gpu.show_usage);
+            append_menu_item(menu, GPU_SHOW_USAGE, "Show GPU Usage", config.modules.gpu.show_usage);
         append_menu_item(menu, GPU_SHOW_MEMORY, "Show Memory Usage", config.modules.gpu.show_memory);
         append_menu_item(menu, GPU_SHOW_TEMP, "Show Temperature", config.modules.gpu.show_temperature);
+        append_menu_item(menu, GPU_SHOW_GRAPH, "Show Graph", config.modules.gpu.show_graph);
         
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, x, y, 0, hwnd, None);
