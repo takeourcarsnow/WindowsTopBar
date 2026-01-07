@@ -859,37 +859,49 @@ impl Renderer {
                                     let right = center_x + radius;
                                     let bottom = center_y + radius;
 
-                                    // Used slice (filled pie) — if 0% we skip drawing it; if 100% we draw a filled circle
-                                        if usage_percent <= 0.0 {
-                                            // nothing to draw
-                                        } else if usage_percent >= 1.0 {
-                                            let fg_brush = CreateSolidBrush(theme.text_primary.colorref());
-                                            let old_brush = SelectObject(hdc, fg_brush);
-                                            let pen = CreatePen(PS_SOLID, 0, theme.text_primary.colorref());
-                                            let old_pen = SelectObject(hdc, pen);
+                                    // Draw subtle background circle (represents free space)
+                                            let bg_brush = CreateSolidBrush(theme.background_secondary.colorref());
+                                            let old_bg_brush = SelectObject(hdc, bg_brush);
+                                            let outline_pen = CreatePen(PS_SOLID, 0, theme.border.colorref());
+                                            let old_outline = SelectObject(hdc, outline_pen);
                                             let _ = Ellipse(hdc, left, top, right, bottom);
-                                            let _ = SelectObject(hdc, old_pen);
-                                            let _ = DeleteObject(pen);
-                                            let _ = SelectObject(hdc, old_brush);
-                                            let _ = DeleteObject(fg_brush);
-                                        } else {
-                                            let start = -std::f32::consts::PI / 2.0;
-                                            let end = start + usage_percent * 2.0 * std::f32::consts::PI;
-                                            let x1 = center_x + (start.cos() * radius as f32) as i32;
-                                            let y1 = center_y + (start.sin() * radius as f32) as i32;
-                                            let x2 = center_x + (end.cos() * radius as f32) as i32;
-                                            let y2 = center_y + (end.sin() * radius as f32) as i32;
+                                            let _ = SelectObject(hdc, old_outline);
+                                            let _ = DeleteObject(outline_pen);
+                                            let _ = SelectObject(hdc, old_bg_brush);
+                                            let _ = DeleteObject(bg_brush);
 
-                                            let fg_brush = CreateSolidBrush(theme.text_primary.colorref());
-                                            let old_brush = SelectObject(hdc, fg_brush);
-                                            let pen = CreatePen(PS_SOLID, 0, theme.text_primary.colorref());
-                                            let old_pen = SelectObject(hdc, pen);
-                                            let _ = Pie(hdc, left, top, right, bottom, x1, y1, x2, y2);
-                                            let _ = SelectObject(hdc, old_pen);
-                                            let _ = DeleteObject(pen);
-                                            let _ = SelectObject(hdc, old_brush);
-                                            let _ = DeleteObject(fg_brush);
-                                        }
+                                            if usage_percent <= 0.0 {
+                                                // nothing else to draw (empty disk)
+                                            } else if usage_percent >= 1.0 {
+                                                // Full disk: draw filled circle using accent color for strong contrast
+                                                let fg_brush = CreateSolidBrush(theme.accent.colorref());
+                                                let old_brush = SelectObject(hdc, fg_brush);
+                                                let pen = CreatePen(PS_SOLID, 0, theme.accent.colorref());
+                                                let old_pen = SelectObject(hdc, pen);
+                                                let _ = Ellipse(hdc, left, top, right, bottom);
+                                                let _ = SelectObject(hdc, old_pen);
+                                                let _ = DeleteObject(pen);
+                                                let _ = SelectObject(hdc, old_brush);
+                                                let _ = DeleteObject(fg_brush);
+                                            } else {
+                                                let start = -std::f32::consts::PI / 2.0;
+                                                let end = start + usage_percent * 2.0 * std::f32::consts::PI;
+                                                let x1 = center_x + (start.cos() * radius as f32) as i32;
+                                                let y1 = center_y + (start.sin() * radius as f32) as i32;
+                                                let x2 = center_x + (end.cos() * radius as f32) as i32;
+                                                let y2 = center_y + (end.sin() * radius as f32) as i32;
+
+                                                // Draw used slice with accent color (better visibility for small slices)
+                                                let fg_brush = CreateSolidBrush(theme.accent.colorref());
+                                                let old_brush = SelectObject(hdc, fg_brush);
+                                                let pen = CreatePen(PS_SOLID, 0, theme.accent.colorref());
+                                                let old_pen = SelectObject(hdc, pen);
+                                                let _ = Pie(hdc, left, top, right, bottom, x1, y1, x2, y2);
+                                                let _ = SelectObject(hdc, old_pen);
+                                                let _ = DeleteObject(pen);
+                                                let _ = SelectObject(hdc, old_brush);
+                                                let _ = DeleteObject(fg_brush);
+                                            }
                                     }
                                 }
                             }
