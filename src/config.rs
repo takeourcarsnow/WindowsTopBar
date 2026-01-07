@@ -72,7 +72,8 @@ impl Config {
     }
 
     /// Perform migrations for older config files
-    /// Enables graph view for system_info and gpu modules when present
+    /// - Enables graph view for system_info and gpu modules when present
+    /// - Ensures CPU and Memory are always enabled in System Info (hides toggles)
     pub fn migrate_enable_graphs(&mut self) -> bool {
         let mut changed = false;
         if !self.modules.system_info.show_graph {
@@ -83,11 +84,24 @@ impl Config {
             self.modules.gpu.show_graph = true;
             changed = true;
         }
+        // Ensure GPU usage, CPU and memory are enabled by default and for existing configs
+        if !self.modules.gpu.show_usage {
+            self.modules.gpu.show_usage = true;
+            changed = true;
+        }
+        if !self.modules.system_info.show_cpu {
+            self.modules.system_info.show_cpu = true;
+            changed = true;
+        }
+        if !self.modules.system_info.show_memory {
+            self.modules.system_info.show_memory = true;
+            changed = true;
+        }
         if changed {
             if let Err(e) = self.save() {
                 warn!("Failed to save config during migration: {}", e);
             } else {
-                info!("Enabled default graph view for system_info and gpu (migration)");
+                info!("Performed config migrations: enabled default graphs and enforced sysinfo CPU/memory (migration)");
             }
         }
         changed
@@ -245,7 +259,6 @@ impl Default for ModulesConfig {
                 "bluetooth".to_string(),
                 "volume".to_string(),
                 "battery".to_string(),
-                "uptime".to_string(),
                 "clock".to_string(),
             ],
         }
@@ -497,7 +510,7 @@ impl Default for NetworkConfig {
         Self {
             show_icon: true,
             show_name: false,
-            show_speed: false,
+            show_speed: true, // Show speed by default
         }
     }
 }
@@ -542,7 +555,7 @@ pub struct VolumeConfig {
 impl Default for VolumeConfig {
     fn default() -> Self {
         Self {
-            show_percentage: false,
+            show_percentage: true, // Show percentage by default
             scroll_to_change: true,
             scroll_step: 5,
             update_interval_ms: 5000, // Volume changes less frequently
@@ -671,7 +684,7 @@ pub struct UptimeConfig {
 impl Default for UptimeConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false, // Disabled by default
             show_icon: true,
         }
     }

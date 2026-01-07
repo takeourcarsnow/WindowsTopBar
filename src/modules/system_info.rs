@@ -88,7 +88,7 @@ impl SystemInfoModule {
         }
 
         if self.show_memory {
-            parts.push(format!("MEM {:.0}%", self.memory_usage));
+            parts.push(format!("RAM {:.0}%", self.memory_usage));
         }
 
         // Update histories for graphs
@@ -181,7 +181,7 @@ impl Module for SystemInfoModule {
 
     fn tooltip(&self) -> Option<String> {
         Some(format!(
-            "CPU Usage: {:.1}%\nMemory: {} / {} ({:.1}%)",
+            "CPU Usage: {:.1}%\nRAM: {} / {} ({:.1}%)",
             self.cpu_usage,
             format_bytes(self.memory_used),
             format_bytes(self.memory_total),

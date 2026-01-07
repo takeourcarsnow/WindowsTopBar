@@ -1167,12 +1167,11 @@ fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         NET_SHOW_SPEED => toggle_config_bool(hwnd, |c| &mut c.modules.network.show_speed),
 
         // System info settings
-        SYSINFO_CPU => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_cpu),
-        SYSINFO_MEM => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_memory),
+        // CPU and Memory toggles are removed - CPU and Memory are always shown.
         SYSINFO_SHOW_GRAPH => toggle_config_bool(hwnd, |c| &mut c.modules.system_info.show_graph),
 
         // GPU settings
-        GPU_SHOW_USAGE => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_usage),
+        // GPU usage toggle removed from menu - GPU usage is always shown.
         GPU_SHOW_GRAPH => toggle_config_bool(hwnd, |c| &mut c.modules.gpu.show_graph),
 
         // Keyboard layout settings
@@ -2029,18 +2028,7 @@ fn show_sysinfo_menu(hwnd: HWND, x: i32, y: i32) {
             .map(|s| s.read().config.clone())
             .unwrap_or_default();
 
-        append_menu_item(
-            menu,
-            SYSINFO_CPU,
-            "Show CPU Usage",
-            config.modules.system_info.show_cpu,
-        );
-        append_menu_item(
-            menu,
-            SYSINFO_MEM,
-            "Show Memory Usage",
-            config.modules.system_info.show_memory,
-        );
+        // CPU and Memory are always shown; do not expose toggles to the user.
         append_menu_item(
             menu,
             SYSINFO_SHOW_GRAPH,
@@ -2209,12 +2197,7 @@ fn show_gpu_menu(hwnd: HWND, x: i32, y: i32) {
             .map(|s| s.read().config.clone())
             .unwrap_or_default();
 
-        append_menu_item(
-            menu,
-            GPU_SHOW_USAGE,
-            "Show GPU Usage",
-            config.modules.gpu.show_usage,
-        );
+        // GPU usage is always shown; do not expose a toggle in the menu.
         append_menu_item(
             menu,
             GPU_SHOW_GRAPH,
