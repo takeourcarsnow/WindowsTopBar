@@ -1,5 +1,7 @@
 //! Bluetooth module - shows Bluetooth status
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 
 use super::Module;
@@ -163,7 +165,7 @@ impl Module for BluetoothModule {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update every 10 seconds
         if self.last_update.elapsed().as_secs() >= 10 {
             self.force_update();

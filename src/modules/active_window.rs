@@ -1,5 +1,7 @@
 //! Active window module - shows the currently focused application
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 use windows::Win32::Foundation::HWND;
 use windows::core::PWSTR;
@@ -35,11 +37,6 @@ impl ActiveWindowModule {
         };
         module.force_update();
         module
-    }
-
-    /// Set maximum title length before truncation
-    pub fn set_max_title_length(&mut self, length: usize) {
-        self.max_title_length = length;
     }
 
     /// Force an immediate update
@@ -184,7 +181,7 @@ impl Module for ActiveWindowModule {
         truncate_string(&self.cached_text, self.max_title_length)
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update every 100ms for very responsive window tracking
         if self.last_update.elapsed().as_millis() >= 100 {
             self.force_update();

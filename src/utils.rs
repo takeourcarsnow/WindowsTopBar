@@ -1,5 +1,7 @@
 //! Utility functions and helpers for TopBar
 
+#![allow(dead_code)]
+
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use windows::core::PCWSTR;

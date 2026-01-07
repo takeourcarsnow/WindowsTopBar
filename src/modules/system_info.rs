@@ -1,5 +1,7 @@
 //! System information module for CPU, memory, and disk usage
 
+#![allow(dead_code)]
+
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::collections::VecDeque;
@@ -54,21 +56,6 @@ impl SystemInfoModule {
         };
         module.force_update();
         module
-    }
-
-    /// Set whether to show CPU usage
-    pub fn set_show_cpu(&mut self, show: bool) {
-        self.show_cpu = show;
-    }
-
-    /// Set whether to show memory usage
-    pub fn set_show_memory(&mut self, show: bool) {
-        self.show_memory = show;
-    }
-
-    /// Set update interval
-    pub fn set_update_interval(&mut self, interval_ms: u64) {
-        self.update_interval_ms = interval_ms;
     }
 
     /// Force an immediate update
@@ -168,7 +155,7 @@ impl Module for SystemInfoModule {
         parts.join("  ")
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         if self.last_update.elapsed().as_millis() >= self.update_interval_ms as u128 {
             self.force_update();
         }

@@ -20,8 +20,6 @@ pub struct DiskInfo {
 pub struct DiskModule {
     cached_text: String,
     disks: Vec<DiskInfo>,
-    show_usage: bool,
-    show_activity: bool,
     primary_disk_index: usize,
     last_update: Instant,
     update_interval_ms: u64,
@@ -29,38 +27,20 @@ pub struct DiskModule {
 
 impl DiskModule {
     pub fn new() -> Self {
-        let mut module = Self {
+        let module = Self {
             cached_text: String::new(),
             disks: Vec::new(),
-            show_usage: true,
-            show_activity: false,
             primary_disk_index: 0,
             last_update: Instant::now(),
             update_interval_ms: 5000,
         };
-        module.force_update();
         module
     }
 
-    /// Set whether to show disk usage percentage
-    pub fn set_show_usage(&mut self, show: bool) {
-        self.show_usage = show;
-    }
-
-    /// Set whether to show disk activity indicator
-    pub fn set_show_activity(&mut self, show: bool) {
-        self.show_activity = show;
-    }
-
-    /// Set update interval
-    pub fn set_update_interval(&mut self, interval_ms: u64) {
-        self.update_interval_ms = interval_ms;
-    }
-
     /// Force an immediate update
-    fn force_update(&mut self) {
+    fn force_update(&mut self, config: &crate::config::Config) {
         self.query_disk_info();
-        self.cached_text = self.build_display_text();
+        self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
     }
 
@@ -92,7 +72,7 @@ impl DiskModule {
     }
 
     /// Build the display text
-    fn build_display_text(&self) -> String {
+    fn build_display_text(&self, config: &crate::config::Config) -> String {
         if self.disks.is_empty() {
             return "💾 --".to_string();
         }
@@ -104,7 +84,7 @@ impl DiskModule {
             0
         };
 
-        if self.show_usage {
+        if config.modules.disk.show_percentage {
             format!("💾 {}%", usage_percent)
         } else {
             "💾".to_string()
@@ -164,9 +144,9 @@ impl Module for DiskModule {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, config: &crate::config::Config) {
         if self.last_update.elapsed().as_millis() >= self.update_interval_ms as u128 {
-            self.force_update();
+            self.force_update(config);
         }
     }
 

@@ -2,12 +2,14 @@
 //! 
 //! Handles window creation, positioning, and Windows API interactions.
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use log::{debug, info, warn};
 use std::sync::Arc;
 use parking_lot::RwLock;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, RECT, BOOL};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, RECT};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE,
     DWM_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DWMWA_SYSTEMBACKDROP_TYPE,
@@ -15,7 +17,6 @@ use windows::Win32::Graphics::Dwm::{
 };
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, EndPaint, InvalidateRect, PAINTSTRUCT,
-    CreateSolidBrush, FillRect, DeleteObject,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{TRACKMOUSEEVENT, TME_LEAVE, TrackMouseEvent};
@@ -28,7 +29,7 @@ use windows::core::w;
 use crate::config::{Config, BarPosition};
 use crate::render::Renderer;
 use crate::theme::{Theme, ThemeManager};
-use crate::utils::{to_wide_string, to_pcwstr, Rect, Size, get_screen_size, scale_by_dpi};
+use crate::utils::{to_wide_string, to_pcwstr, Rect, get_screen_size, scale_by_dpi};
 
 /// Window class name
 const WINDOW_CLASS: &str = "TopBarWindowClass";
@@ -294,7 +295,7 @@ impl WindowManager {
 
     /// Reserve screen space (like a taskbar)
     fn reserve_screen_space(rect: &Rect, config: &Config) -> Result<()> {
-        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_NEW, ABM_SETPOS, ABM_REMOVE, APPBARDATA, ABE_TOP, ABE_BOTTOM};
+        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_NEW, ABM_SETPOS, APPBARDATA, ABE_TOP, ABE_BOTTOM};
 
         unsafe {
             let mut abd = APPBARDATA {
@@ -668,7 +669,6 @@ const GPU_SHOW_USAGE: u32 = 2601;
 const GPU_SHOW_MEMORY: u32 = 2602;
 const GPU_SHOW_TEMP: u32 = 2603;
 const GPU_SHOW_GRAPH: u32 = 2604;
-const MENU_SEPARATOR: u32 = 1100;
 const MENU_SETTINGS: u32 = 1200;
 const MENU_RELOAD: u32 = 1201;
 const MENU_EXIT: u32 = 1999;

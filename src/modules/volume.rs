@@ -13,7 +13,6 @@ use super::Module;
 
 /// Volume module with real Windows audio integration
 pub struct VolumeModule {
-    show_percentage: bool,
     scroll_to_change: bool,
     scroll_step: u32,
     cached_text: String,
@@ -27,7 +26,6 @@ pub struct VolumeModule {
 impl VolumeModule {
     pub fn new() -> Self {
         let mut module = Self {
-            show_percentage: false,
             scroll_to_change: true,
             scroll_step: 5,
             cached_text: String::new(),
@@ -38,7 +36,6 @@ impl VolumeModule {
             output_device_name: String::new(),
         };
         module.init_com();
-        module.force_update();
         module
     }
 
@@ -51,23 +48,13 @@ impl VolumeModule {
         }
     }
 
-    /// Set whether to show percentage
-    pub fn set_show_percentage(&mut self, show: bool) {
-        self.show_percentage = show;
-    }
-
-    /// Set scroll step
-    pub fn set_scroll_step(&mut self, step: u32) {
-        self.scroll_step = step;
-    }
-
     /// Force an immediate update
-    fn force_update(&mut self) {
+    fn force_update(&mut self, config: &crate::config::Config) {
         // Get volume from Windows
         self.get_system_volume();
         
         // Build display text
-        self.cached_text = self.build_display_text();
+        self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
     }
 
@@ -110,7 +97,6 @@ impl VolumeModule {
                 let scalar = (level as f32 / 100.0).clamp(0.0, 1.0);
                 let _ = endpoint.SetMasterVolumeLevelScalar(scalar, std::ptr::null());
                 self.volume_level = level;
-                self.cached_text = self.build_display_text();
             }
         }
     }
@@ -121,16 +107,15 @@ impl VolumeModule {
             unsafe {
                 let _ = endpoint.SetMute(muted, std::ptr::null());
                 self.is_muted = muted;
-                self.cached_text = self.build_display_text();
             }
         }
     }
 
     /// Build the display text
-    fn build_display_text(&self) -> String {
+    fn build_display_text(&self, config: &crate::config::Config) -> String {
         let icon = self.get_volume_icon();
         
-        if self.show_percentage {
+        if config.modules.volume.show_percentage {
             format!("{} {}%", icon, self.volume_level)
         } else {
             icon.to_string()
@@ -143,8 +128,6 @@ impl VolumeModule {
             "🔇"
         } else if self.volume_level < 25 {
             "🔈"
-        } else if self.volume_level < 50 {
-            "🔉"
         } else if self.volume_level < 75 {
             "🔉"
         } else {
@@ -204,10 +187,10 @@ impl Module for VolumeModule {
         }
     }
 
-    fn update(&mut self) {
-        // Update every 2 seconds for more responsive volume tracking
-        if self.last_update.elapsed().as_secs() >= 2 {
-            self.force_update();
+    fn update(&mut self, config: &crate::config::Config) {
+        // Update every 5 seconds
+        if self.last_update.elapsed().as_secs() >= 5 {
+            self.force_update(config);
         }
     }
 

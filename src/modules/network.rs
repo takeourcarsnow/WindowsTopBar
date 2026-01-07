@@ -1,5 +1,7 @@
 //! Network module for displaying network status with real WiFi info
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 
 use super::Module;
@@ -46,16 +48,6 @@ impl NetworkModule {
         };
         module.force_update();
         module
-    }
-
-    /// Set whether to show icon
-    pub fn set_show_icon(&mut self, show: bool) {
-        self.show_icon = show;
-    }
-
-    /// Set whether to show network name
-    pub fn set_show_name(&mut self, show: bool) {
-        self.show_name = show;
     }
 
     /// Force an immediate update
@@ -241,14 +233,8 @@ impl NetworkModule {
 
     /// Get WiFi icon based on signal strength
     fn get_wifi_icon(&self) -> &'static str {
-        if self.signal_strength >= 80 {
-            "📶"  // Excellent
-        } else if self.signal_strength >= 60 {
-            "📶"  // Good
-        } else if self.signal_strength >= 40 {
-            "📶"  // Fair
-        } else if self.signal_strength >= 20 {
-            "📶"  // Weak
+        if self.signal_strength >= 20 {
+            "📶"  // Connected
         } else {
             "📵"  // Very weak / disconnected
         }
@@ -316,7 +302,7 @@ impl Module for NetworkModule {
         text
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update every 10 seconds
         if self.last_update.elapsed().as_secs() >= 10 {
             self.force_update();

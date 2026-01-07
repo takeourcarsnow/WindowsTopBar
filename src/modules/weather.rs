@@ -1,5 +1,7 @@
 //! Weather module for displaying weather information
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 
 use super::Module;
@@ -187,7 +189,7 @@ impl Module for WeatherModule {
         self.cached_text.clone()
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update based on configured interval
         if self.last_update.elapsed().as_secs() >= (self.update_interval_min * 60) as u64 {
             self.force_update();

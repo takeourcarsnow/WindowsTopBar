@@ -1,5 +1,7 @@
 //! App menu module - macOS-style application menu
 
+#![allow(dead_code)]
+
 use super::Module;
 
 /// Menu item structure
@@ -230,7 +232,7 @@ impl Module for AppMenuModule {
         "☰".to_string()
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Menu doesn't need periodic updates
     }
 

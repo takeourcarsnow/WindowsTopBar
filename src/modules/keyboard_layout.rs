@@ -1,5 +1,7 @@
 //! Keyboard layout module - shows current input language/layout
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 use windows::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayout;
 use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
@@ -180,7 +182,7 @@ impl Module for KeyboardLayoutModule {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update every 500ms to catch keyboard layout changes
         if self.last_update.elapsed().as_millis() >= 500 {
             self.force_update();

@@ -1,20 +1,20 @@
 //! System tray icon support for TopBar
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use log::{debug, info};
-use std::sync::Arc;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM};
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY,
     NOTIFYICONDATAW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateIconFromResource, DestroyIcon, LoadImageW, HICON, IMAGE_ICON,
+    DestroyIcon, LoadImageW, HICON, IMAGE_ICON,
     LR_DEFAULTSIZE, LR_SHARED,
 };
 
-use crate::config::Config;
 use crate::window::WM_TOPBAR_TRAY;
 use crate::utils::to_wide_string;
 

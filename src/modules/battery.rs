@@ -8,8 +8,6 @@ use crate::utils::format_duration;
 
 /// Battery module
 pub struct BatteryModule {
-    show_percentage: bool,
-    show_time_remaining: bool,
     cached_text: String,
     battery_percent: u32,
     is_charging: bool,
@@ -21,9 +19,8 @@ pub struct BatteryModule {
 
 impl BatteryModule {
     pub fn new() -> Self {
-        let mut module = Self {
-            show_percentage: true,
-            show_time_remaining: false,
+        let module = Self {
+
             cached_text: String::new(),
             battery_percent: 100,
             is_charging: false,
@@ -32,22 +29,11 @@ impl BatteryModule {
             has_battery: true,
             last_update: Instant::now(),
         };
-        module.force_update();
         module
     }
 
-    /// Set whether to show percentage
-    pub fn set_show_percentage(&mut self, show: bool) {
-        self.show_percentage = show;
-    }
-
-    /// Set whether to show time remaining
-    pub fn set_show_time_remaining(&mut self, show: bool) {
-        self.show_time_remaining = show;
-    }
-
     /// Force an immediate update
-    fn force_update(&mut self) {
+    fn force_update(&mut self, config: &crate::config::Config) {
         unsafe {
             let mut status = SYSTEM_POWER_STATUS::default();
             if GetSystemPowerStatus(&mut status).is_ok() {
@@ -79,12 +65,12 @@ impl BatteryModule {
         }
 
         // Build display text
-        self.cached_text = self.build_display_text();
+        self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
     }
 
     /// Build the display text
-    fn build_display_text(&self) -> String {
+    fn build_display_text(&self, config: &crate::config::Config) -> String {
         if !self.has_battery {
             return String::new();
         }
@@ -92,11 +78,11 @@ impl BatteryModule {
         let icon = self.get_battery_icon();
         let mut text = icon.to_string();
 
-        if self.show_percentage {
+        if config.modules.battery.show_percentage {
             text.push_str(&format!(" {}%", self.battery_percent));
         }
 
-        if self.show_time_remaining {
+        if config.modules.battery.show_time_remaining {
             if let Some(secs) = self.seconds_remaining {
                 text.push_str(&format!(" ({})", format_duration(secs as u64)));
             }
@@ -115,18 +101,10 @@ impl BatteryModule {
             "🔌"  // Plugged in but not charging (full)
         } else if self.is_charging {
             "⚡"  // Charging
-        } else if self.battery_percent >= 90 {
-            "🔋"  // Full
-        } else if self.battery_percent >= 70 {
-            "🔋"  // High
-        } else if self.battery_percent >= 50 {
-            "🔋"  // Medium-high
         } else if self.battery_percent >= 30 {
-            "🔋"  // Medium
-        } else if self.battery_percent >= 15 {
-            "🪫"  // Low
+            "🔋"  // Good level
         } else {
-            "🪫"  // Critical - consider adding notification
+            "🪫"  // Low or critical
         }
     }
 
@@ -186,10 +164,10 @@ impl Module for BatteryModule {
         text
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, config: &crate::config::Config) {
         // Update every 30 seconds
         if self.last_update.elapsed().as_secs() >= 30 {
-            self.force_update();
+            self.force_update(config);
         }
     }
 

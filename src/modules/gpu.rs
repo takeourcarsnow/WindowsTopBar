@@ -1,5 +1,7 @@
 //! GPU module for displaying GPU usage and temperature
 
+#![allow(unused_unsafe)]
+
 use std::time::Instant;
 use std::collections::VecDeque;
 
@@ -21,9 +23,6 @@ pub struct GpuInfo {
 pub struct GpuModule {
     cached_text: String,
     gpu_info: GpuInfo,
-    show_usage: bool,
-    show_memory: bool,
-    show_temp: bool,
     // histories for moving graphs (percentages or scaled values)
     usage_history: VecDeque<f32>,
     memory_history: VecDeque<f32>,
@@ -34,44 +33,20 @@ pub struct GpuModule {
 
 impl GpuModule {
     pub fn new() -> Self {
-        let mut module = Self {
+        let module = Self {
             cached_text: String::new(),
             gpu_info: GpuInfo::default(),
-            show_usage: true,
-            show_memory: false,
-            show_temp: false,
             usage_history: VecDeque::with_capacity(60),
             memory_history: VecDeque::with_capacity(60),
             history_len: 60,
             last_update: Instant::now(),
             update_interval_ms: 2000,
         };
-        module.force_update();
         module
     }
 
-    /// Set whether to show GPU usage
-    pub fn set_show_usage(&mut self, show: bool) {
-        self.show_usage = show;
-    }
-
-    /// Set whether to show memory usage
-    pub fn set_show_memory(&mut self, show: bool) {
-        self.show_memory = show;
-    }
-
-    /// Set whether to show temperature
-    pub fn set_show_temp(&mut self, show: bool) {
-        self.show_temp = show;
-    }
-
-    /// Set update interval
-    pub fn set_update_interval(&mut self, interval_ms: u64) {
-        self.update_interval_ms = interval_ms;
-    }
-
     /// Force an immediate update
-    fn force_update(&mut self) {
+    fn force_update(&mut self, config: &crate::config::Config) {
         self.query_gpu_info();
 
         // Update histories
@@ -88,7 +63,7 @@ impl GpuModule {
             }
         }
 
-        self.cached_text = self.build_display_text();
+        self.cached_text = self.build_display_text(config);
         self.last_update = Instant::now();
     }
 
@@ -290,19 +265,19 @@ impl GpuModule {
     }
 
     /// Build the display text
-    fn build_display_text(&self) -> String {
+    fn build_display_text(&self, config: &crate::config::Config) -> String {
         let mut parts = Vec::new();
 
-        if self.show_usage {
+        if config.modules.gpu.show_usage {
             parts.push(format!("GPU {:.0}%", self.gpu_info.usage));
         }
 
-        if self.show_memory && self.gpu_info.memory_total > 0 {
+        if config.modules.gpu.show_memory && self.gpu_info.memory_total > 0 {
             let mem_percent = (self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as u32;
             parts.push(format!("VRAM {}%", mem_percent));
         }
 
-        if self.show_temp {
+        if config.modules.gpu.show_temperature {
             if let Some(temp) = self.gpu_info.temperature {
                 parts.push(format!("{:.0}°C", temp));
             }
@@ -355,9 +330,9 @@ impl Module for GpuModule {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, config: &crate::config::Config) {
         if self.last_update.elapsed().as_millis() >= self.update_interval_ms as u128 {
-            self.force_update();
+            self.force_update(config);
         }
     }
 

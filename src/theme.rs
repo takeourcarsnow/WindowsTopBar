@@ -2,26 +2,23 @@
 //! 
 //! Handles light/dark themes, colors, and visual styling.
 
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::Win32::Foundation::COLORREF;
 use windows::Win32::System::Registry::{
-    RegOpenKeyExW, RegQueryValueExW, HKEY_CURRENT_USER, KEY_READ, REG_DWORD,
+    RegOpenKeyExW, RegQueryValueExW, HKEY_CURRENT_USER, KEY_READ,
 };
 use windows::core::PCWSTR;
 
 /// Theme mode setting
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 pub enum ThemeMode {
     Light,
     Dark,
+    #[default]
     Auto,
-}
-
-impl Default for ThemeMode {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 /// RGBA Color representation

@@ -10,7 +10,7 @@ use log::{info, warn};
 use crate::theme::ThemeMode;
 
 /// Main configuration structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// General application settings
     pub general: GeneralConfig,
@@ -22,18 +22,6 @@ pub struct Config {
     pub behavior: BehaviorConfig,
     /// Hotkey configurations
     pub hotkeys: HotkeyConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            general: GeneralConfig::default(),
-            appearance: AppearanceConfig::default(),
-            modules: ModulesConfig::default(),
-            behavior: BehaviorConfig::default(),
-            hotkeys: HotkeyConfig::default(),
-        }
-    }
 }
 
 impl Config {

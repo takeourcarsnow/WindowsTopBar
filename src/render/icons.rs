@@ -3,6 +3,8 @@
 //! Provides icons using Segoe Fluent Icons font (Windows 11)
 //! and Unicode symbols as fallback.
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 /// Icon manager
@@ -233,7 +235,7 @@ pub fn volume_icon_for_level(level: u32, is_muted: bool) -> char {
 }
 
 /// Get WiFi icon for signal strength
-pub fn wifi_icon_for_strength(strength: u32, is_connected: bool) -> char {
+pub fn wifi_icon_for_strength(_strength: u32, is_connected: bool) -> char {
     if !is_connected {
         return fluent::WIFI_OFF;
     }

@@ -1,5 +1,7 @@
 //! Custom error types for the TopBar application
 
+#![allow(dead_code)]
+
 use thiserror::Error;
 
 /// Main error type for TopBar operations

@@ -1,14 +1,14 @@
 //! Main application logic for TopBar
 
+#![allow(dead_code)]
+
 use anyhow::Result;
-use log::{debug, info, warn};
+use log::{info, warn};
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 use crate::config::Config;
 use crate::tray::TrayIcon;
 use crate::window::WindowManager;
-use crate::modules::ModuleRegistry;
 
 /// Main application state
 pub struct Application {

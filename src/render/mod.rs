@@ -1,12 +1,12 @@
 //! Render module - graphics and drawing
 //! 
 //! Contains all rendering-related code including the main renderer,
-//! dropdown menus, and icon handling.
+//! and icon handling.
 
-mod dropdown;
+#![allow(dead_code, unused_unsafe)]
+
 mod icons;
 
-pub use dropdown::{DropdownMenu, DropdownItem};
 pub use icons::Icons;
 
 use anyhow::Result;
@@ -15,7 +15,7 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::*;
 use chrono::Local;
 
-use crate::theme::{Color, Theme};
+use crate::theme::{Theme};
 use crate::utils::Rect;
 use crate::modules::{ModuleRegistry, ModuleRenderContext};
 use crate::window::get_window_state;
@@ -129,9 +129,6 @@ impl Renderer {
 
     /// Draw all modules
     fn draw_modules(&mut self, hdc: HDC, bar_rect: &Rect, theme: &Theme) {
-        // First update all modules to get fresh data
-        self.module_registry.update_all();
-        
         // Get enabled modules and config from state
         let (left_modules, right_modules, config) = get_window_state()
             .map(|s| {
@@ -150,6 +147,9 @@ impl Renderer {
                     std::sync::Arc::new(default_config),
                 )
             });
+
+        // First update all modules to get fresh data
+        self.module_registry.update_all(&config);
         
         let padding = self.scale(8);
         let item_spacing = self.scale(4);
@@ -465,7 +465,7 @@ impl Renderer {
                     hdc, x, bar_rect.height, &disk_text, item_padding, theme, false
                 );
                 self.module_bounds.insert("disk".to_string(), disk_rect);
-                x -= item_spacing;
+                
             }
 
             SelectObject(hdc, old_font);

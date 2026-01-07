@@ -2,8 +2,9 @@
 //! 
 //! Provides macOS-style dropdown menus for various modules.
 
-use std::collections::HashMap;
-use windows::Win32::Foundation::{HWND, RECT, POINT, LPARAM, WPARAM, LRESULT, COLORREF};
+#![allow(dead_code)]
+
+use windows::Win32::Foundation::{HWND, RECT, LPARAM, WPARAM, LRESULT, COLORREF};
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SetCapture, ReleaseCapture};
 use windows::Win32::Graphics::Gdi::*;
@@ -11,7 +12,7 @@ use windows::core::PCWSTR;
 use anyhow::Result;
 
 use crate::theme::{Theme, Color};
-use crate::utils::{to_wide_string, to_pcwstr, Rect};
+use crate::utils::{to_wide_string, to_pcwstr};
 
 /// Menu item data
 #[derive(Debug, Clone)]

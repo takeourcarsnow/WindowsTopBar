@@ -2,6 +2,8 @@
 //! 
 //! Handles global hotkey registration and processing.
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use log::{debug, info, warn};
 use std::collections::HashMap;

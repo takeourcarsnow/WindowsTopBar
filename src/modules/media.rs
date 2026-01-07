@@ -1,5 +1,7 @@
 //! Media controls module - shows now playing and playback controls
 
+#![allow(dead_code)]
+
 use std::time::Instant;
 
 use super::Module;
@@ -42,16 +44,6 @@ impl MediaModule {
             playback_state: PlaybackState::Stopped,
             last_update: Instant::now(),
         }
-    }
-
-    /// Set whether to show now playing info
-    pub fn set_show_now_playing(&mut self, show: bool) {
-        self.show_now_playing = show;
-    }
-
-    /// Set maximum title length
-    pub fn set_max_title_length(&mut self, length: usize) {
-        self.max_title_length = length;
     }
 
     /// Force an immediate update
@@ -215,7 +207,7 @@ impl Module for MediaModule {
         self.cached_text.clone()
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, _config: &crate::config::Config) {
         // Update every 2 seconds
         if self.last_update.elapsed().as_secs() >= 2 {
             self.force_update();

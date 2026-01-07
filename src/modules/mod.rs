@@ -3,6 +3,8 @@
 //! Modules are individual components that display information or provide
 //! functionality in the topbar.
 
+#![allow(dead_code)]
+
 pub mod clock;
 pub mod system_info;
 pub mod battery;
@@ -36,7 +38,7 @@ pub trait Module: Send + Sync {
     fn display_text(&self, config: &crate::config::Config) -> String;
 
     /// Update module state (called periodically)
-    fn update(&mut self);
+    fn update(&mut self, config: &crate::config::Config);
 
     /// Handle click event
     fn on_click(&mut self) {}
@@ -149,9 +151,9 @@ impl ModuleRegistry {
     }
 
     /// Update all modules
-    pub fn update_all(&mut self) {
+    pub fn update_all(&mut self, config: &crate::config::Config) {
         for module in self.modules.values_mut() {
-            module.update();
+            module.update(config);
         }
     }
 

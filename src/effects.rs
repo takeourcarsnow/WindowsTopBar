@@ -2,6 +2,8 @@
 //! 
 //! Provides Mica, Acrylic, and other backdrop effects.
 
+#![allow(dead_code, unused_unsafe)]
+
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DwmExtendFrameIntoClientArea,
@@ -190,28 +192,26 @@ pub mod legacy {
     }
 
     /// Apply blur effect using SetWindowCompositionAttribute
-    pub fn apply_blur(hwnd: HWND, accent: AccentState, color: u32) -> Result<()> {
+    pub fn apply_blur(_hwnd: HWND, accent: AccentState, color: u32) -> Result<()> {
         // This uses undocumented API and may not work on all Windows versions
         // The modern DwmSetWindowAttribute approach is preferred
         
-        unsafe {
-            let mut policy = AccentPolicy {
-                accent_state: accent as i32,
-                accent_flags: 2,  // ACCENT_ENABLE_BLURBEHIND
-                gradient_color: color,
-                animation_id: 0,
-            };
+        let mut policy = AccentPolicy {
+            accent_state: accent as i32,
+            accent_flags: 2,  // ACCENT_ENABLE_BLURBEHIND
+            gradient_color: color,
+            animation_id: 0,
+        };
 
-            let mut data = WindowCompositionAttribData {
-                attrib: 19,  // WCA_ACCENT_POLICY
-                data: &mut policy,
-                size: std::mem::size_of::<AccentPolicy>(),
-            };
+        let data = WindowCompositionAttribData {
+            attrib: 19,  // WCA_ACCENT_POLICY
+            data: &mut policy,
+            size: std::mem::size_of::<AccentPolicy>(),
+        };
 
-            // This would require loading user32.dll and finding SetWindowCompositionAttribute
-            // For now, we rely on the DWM methods which are more reliable
-            let _ = data;
-        }
+        // This would require loading user32.dll and finding SetWindowCompositionAttribute
+        // For now, we rely on the DWM methods which are more reliable
+        let _ = data;
 
         Ok(())
     }
