@@ -19,7 +19,7 @@ use windows::Win32::Graphics::Gdi::{
     BeginPaint, EndPaint, InvalidateRect, PAINTSTRUCT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Input::KeyboardAndMouse::{TRACKMOUSEEVENT, TME_LEAVE, TrackMouseEvent};
+use windows::Win32::UI::Input::KeyboardAndMouse::{TRACKMOUSEEVENT, TME_LEAVE, TrackMouseEvent, SetCapture, ReleaseCapture};
 use windows::Win32::UI::HiDpi::{GetDpiForWindow, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -56,6 +56,14 @@ pub struct WindowState {
     pub active_menu: Option<String>,
     pub needs_redraw: bool,
     pub clicked_module: Option<String>,
+
+    // Drag-and-drop state for rearranging modules
+    pub clicked_pos: Option<(i32, i32)>,
+    pub dragging_module: Option<String>,
+    pub drag_start_x: i32,
+    pub drag_current_x: i32,
+    pub drag_origin_side: Option<String>, // "left" or "right"
+    pub drag_orig_index: Option<usize>,
 }
 
 impl WindowState {
@@ -73,6 +81,14 @@ impl WindowState {
             active_menu: None,
             needs_redraw: true,
             clicked_module: None,
+
+            // Drag state defaults
+            clicked_pos: None,
+            dragging_module: None,
+            drag_start_x: 0,
+            drag_current_x: 0,
+            drag_origin_side: None,
+            drag_orig_index: None,
         }
     }
 }
@@ -467,7 +483,8 @@ unsafe extern "system" fn window_proc(
         WM_MOUSEMOVE => {
             let x = (lparam.0 & 0xFFFF) as i16 as i32;
             let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
-            
+            const DRAG_THRESHOLD: i32 = 6;
+
             if let Some(state) = get_window_state() {
                 let mut state_guard = state.write();
                 if !state_guard.is_hovered {
@@ -483,17 +500,39 @@ unsafe extern "system" fn window_proc(
                     };
                     let _ = TrackMouseEvent(&mut tme);
                 }
-                
+
+                // If we have a clicked module and movement exceeds threshold, start a drag
+                if state_guard.dragging_module.is_none() {
+                    if let (Some(click_id), Some((cx, _cy))) = (state_guard.clicked_module.clone(), state_guard.clicked_pos) {
+                        if (x - cx).abs() > DRAG_THRESHOLD {
+                            debug!("Starting drag for module: {}", click_id);
+                            state_guard.dragging_module = Some(click_id.clone());
+                            state_guard.drag_start_x = cx;
+                            state_guard.drag_current_x = x;
+                            state_guard.hover_module = None;
+                            state_guard.needs_redraw = true;
+                        }
+                    }
+                } else {
+                    // Update dragging position
+                    state_guard.drag_current_x = x;
+                    state_guard.needs_redraw = true;
+                }
+
+                // Only update hover when not dragging
+                let currently_dragging = state_guard.dragging_module.clone();
                 let current_hover = state_guard.hover_module.clone();
                 drop(state_guard);
-                
-                // Update hover module based on position
-                let new_hover = with_renderer(|renderer| renderer.hit_test(x, y)).flatten();
-                if new_hover != current_hover {
-                    if let Some(state) = get_window_state() {
-                        let mut state_guard = state.write();
-                        state_guard.hover_module = new_hover;
-                        state_guard.needs_redraw = true;
+
+                if currently_dragging.is_none() {
+                    // Update hover module based on position
+                    let new_hover = with_renderer(|renderer| renderer.hit_test(x, y)).flatten();
+                    if new_hover != current_hover {
+                        if let Some(state) = get_window_state() {
+                            let mut state_guard = state.write();
+                            state_guard.hover_module = new_hover;
+                            state_guard.needs_redraw = true;
+                        }
                     }
                 }
             }
@@ -517,14 +556,126 @@ unsafe extern "system" fn window_proc(
             
             let module_id = with_renderer(|renderer| renderer.hit_test(x, y)).flatten();
             if let Some(module_id) = module_id {
-                debug!("Clicked on module: {}", module_id);
-                // Store the clicked module and handle it
+                debug!("Mouse down on module: {}", module_id);
+                // Store the clicked module and preparatory drag state; do NOT trigger click yet
                 if let Some(state) = get_window_state() {
-                    state.write().clicked_module = Some(module_id.clone());
+                    let mut s = state.write();
+                    s.clicked_module = Some(module_id.clone());
+                    s.clicked_pos = Some((x, y));
+                    s.dragging_module = None;
+                    s.drag_start_x = x;
+                    s.drag_current_x = x;
+
+                    // Record origin (left/right and index) for later reordering
+                    let cfg = (*s.config).clone();
+                    if let Some(idx) = cfg.modules.left_modules.iter().position(|m| m == &module_id) {
+                        s.drag_origin_side = Some("left".to_string());
+                        s.drag_orig_index = Some(idx);
+                    } else if let Some(idx) = cfg.modules.right_modules.iter().position(|m| m == &module_id) {
+                        s.drag_origin_side = Some("right".to_string());
+                        s.drag_orig_index = Some(idx);
+                    } else {
+                        s.drag_origin_side = None;
+                        s.drag_orig_index = None;
+                    }
                 }
-                // Handle module click actions with position
-                handle_module_click(hwnd, &module_id, x);
+
+                // Capture mouse so we receive move/up events
+                unsafe { let _ = SetCapture(hwnd); }
             }
+            LRESULT(0)
+        }
+
+        WM_LBUTTONUP => {
+            let x = (lparam.0 & 0xFFFF) as i16 as i32;
+            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+
+            if let Some(state) = get_window_state() {
+                let mut s = state.write();
+
+                // If a drag was in progress, finalize reorder
+                if let Some(drag_id) = s.dragging_module.clone() {
+                    // Use renderer bounds to determine insertion point
+                    with_renderer(|renderer| {
+                        let bounds = renderer.module_bounds().clone();
+
+                        // Determine visual order for the origin side
+                        let (visual_list, mut target_vec) = if let Some(side) = &s.drag_origin_side {
+                            if side == "left" {
+                                (s.config.modules.left_modules.clone(), "left")
+                            } else {
+                                (s.config.modules.right_modules.clone(), "right")
+                            }
+                        } else {
+                            (vec![], "left")
+                        };
+
+                        // Build visual vector of (id, rect) in left-to-right order
+                        let mut visual: Vec<(String, crate::utils::Rect)> = Vec::new();
+                        for id in visual_list.iter() {
+                            if let Some(r) = bounds.get(id) {
+                                visual.push((id.clone(), r.clone()));
+                            }
+                        }
+
+                        // Compute insertion index based on cursor x
+                        let mut insert_idx = visual.len();
+                        for (i, (_id, rect)) in visual.iter().enumerate() {
+                            let mid = rect.x + rect.width / 2;
+                            if s.drag_current_x < mid {
+                                insert_idx = i;
+                                break;
+                            }
+                        }
+
+                        // Apply to config: remove original and insert at new index
+                        let mut new_cfg = (*s.config).clone();
+                        let vec_ref = if s.drag_origin_side.as_deref() == Some("left") {
+                            &mut new_cfg.modules.left_modules
+                        } else {
+                            &mut new_cfg.modules.right_modules
+                        };
+
+                        if let Some(pos) = vec_ref.iter().position(|m| m == &drag_id) {
+                            vec_ref.remove(pos);
+                            let mut final_idx = insert_idx;
+                            if final_idx > pos { final_idx = final_idx.saturating_sub(1); }
+                            vec_ref.insert(final_idx, drag_id.clone());
+                        }
+
+                        // Save and apply config
+                        if let Err(e) = new_cfg.save() {
+                            warn!("Failed to save config after reorder: {}", e);
+                        } else {
+                            s.config = Arc::new(new_cfg);
+                        }
+                    });
+
+                    // Clear drag state
+                    s.dragging_module = None;
+                    s.clicked_module = None;
+                    s.clicked_pos = None;
+                    s.drag_origin_side = None;
+                    s.drag_orig_index = None;
+                    s.needs_redraw = true;
+                    // Force redraw to reflect new ordering
+                    unsafe { let _ = InvalidateRect(hwnd, None, false); }
+                } else if let Some(click_id) = s.clicked_module.clone() {
+                    // No drag - treat as click
+                    drop(s); // unlock briefly for handler
+                    handle_module_click(hwnd, &click_id, x);
+                    if let Some(state) = get_window_state() {
+                        let mut s2 = state.write();
+                        s2.clicked_module = None;
+                        s2.clicked_pos = None;
+                        s2.needs_redraw = true;
+                    }
+                }
+
+                // Release mouse capture
+                unsafe { let _ = ReleaseCapture(); }
+            }
+
             LRESULT(0)
         }
 

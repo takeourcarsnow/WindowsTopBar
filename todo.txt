@@ -11,3 +11,8 @@ disk activity indicator does nothing
 i switch to lithuanian layout but it shows up as unknown or ??
 
 update ui ux fonts to be more modern, not default windows white menus/modals like now
+
+
+make a fully production ready website to showcase this app, my idea is to provide it free of charge with ability for people to donate donate if they want to
+react next ts
+should i make this in a whole new project though and then add the link to download the app in there or can we do everything in this one project?    

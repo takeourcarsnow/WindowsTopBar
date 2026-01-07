@@ -13,6 +13,7 @@ A native Windows 11 topbar application inspired by macOS and [Droptop Four](http
 - **Windows 11 Effects**: Acrylic blur, rounded corners, and modern styling
 - **System Tray Icon**: Quick access and background operation
 - **Hotkey Support**: Customizable keyboard shortcuts
+- **Drag & Drop Reordering**: Reorder modules by dragging items in the bar; order is saved automatically
 - **Low Resource Usage**: Native Rust implementation for optimal performance
 
 ## Modules
@@ -51,7 +52,7 @@ Download the latest release from the [Releases](https://github.com/yourusername/
 
 ## Configuration
 
-Configuration is stored in `%APPDATA%\topbar\config.toml`. The file is created automatically on first run.
+Configuration is stored in `%APPDATA%\topbar\config.toml`. The file is created automatically on first run. Module order changes made via drag-and-drop are saved to this file automatically.
 
 ### Example Configuration
 
