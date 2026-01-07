@@ -55,6 +55,11 @@ impl SystemInfoModule {
             update_interval_ms: 2000,
         };
         module.force_update();
+        
+        // Pre-fill histories with zeros so graphs start at zero
+        module.cpu_history = VecDeque::from(vec![0.0; module.history_len]);
+        module.memory_history = VecDeque::from(vec![0.0; module.history_len]);
+        
         module
     }
 

@@ -42,15 +42,12 @@ impl GpuModule {
             update_interval_ms: 2000,
         };
 
-        // Query once at startup so graphs have an initial meaningful value
+        // Query once at startup for current values
         s.query_gpu_info();
-        let usage_val = s.gpu_info.usage;
-        s.usage_history = VecDeque::from(vec![usage_val; s.history_len]);
-
-        if s.gpu_info.memory_total > 0 {
-            let mem_pct = s.memory_usage_percent().unwrap_or(0.0);
-            s.memory_history = VecDeque::from(vec![mem_pct; s.history_len]);
-        }
+        
+        // Pre-fill histories with zeros so graphs start at zero and then draw up
+        s.usage_history = VecDeque::from(vec![0.0; s.history_len]);
+        s.memory_history = VecDeque::from(vec![0.0; s.history_len]);
 
         s.cached_text = s.build_display_text(&crate::config::Config::default());
 
