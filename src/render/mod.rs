@@ -375,7 +375,7 @@ impl Renderer {
                             let sysinfo_text = self.module_registry
                                 .get("system_info")
                                 .map(|m| m.display_text(&*config))
-                                .unwrap_or_else(|| "CPU --  MEM --".to_string());
+                                .unwrap_or_else(|| "CPU --  RAM --".to_string());
 
                             // Compute a sensible minimum width based on which parts are configured
                             // to be shown (CPU and/or Memory). This avoids leaving a large empty
@@ -384,10 +384,10 @@ impl Renderer {
                                 config.modules.system_info.show_cpu,
                                 config.modules.system_info.show_memory,
                             ) {
-                                (true, true) => "CPU 100%  MEM 100%",
+                                (true, true) => "CPU 100%  RAM 100%",
                                 (true, false) => "CPU 100%",
-                                (false, true) => "MEM 100%",
-                                _ => "CPU --  MEM --",
+                                (false, true) => "RAM 100%",
+                                _ => "CPU --  RAM --",
                             };
                             let (sample_w, _) = self.measure_text(hdc, sample_text);
                             // Add horizontal padding and enforce a small minimum so the area isn't too tight

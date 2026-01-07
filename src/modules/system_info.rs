@@ -149,7 +149,7 @@ impl Module for SystemInfoModule {
         }
 
         if config.modules.system_info.show_memory {
-            parts.push(format!("MEM {:.0}%", self.memory_usage));
+            parts.push(format!("RAM {:.0}%", self.memory_usage));
         }
 
         parts.join("  ")

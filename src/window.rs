@@ -882,9 +882,10 @@ fn show_context_menu(hwnd: HWND, x: i32, y: i32) {
             .unwrap_or_default();
         
         let right_modules = &config.modules.right_modules;
+        let center_modules = &config.modules.center_modules;
 
         // Module toggles with checkmarks
-        append_menu_item(menu, MENU_SHOW_CLOCK, "Clock", right_modules.contains(&"clock".to_string()));
+        append_menu_item(menu, MENU_SHOW_CLOCK, "Clock", right_modules.contains(&"clock".to_string()) || (config.modules.clock.center && center_modules.contains(&"clock".to_string())));
         append_menu_item(menu, MENU_SHOW_BATTERY, "Battery", right_modules.contains(&"battery".to_string()));
         append_menu_item(menu, MENU_SHOW_VOLUME, "Volume", right_modules.contains(&"volume".to_string()));
         append_menu_item(menu, MENU_SHOW_NETWORK, "Network", right_modules.contains(&"network".to_string()));
@@ -1199,16 +1200,23 @@ fn toggle_module(hwnd: HWND, module_id: &str) {
     if let Some(state) = get_window_state() {
         let config = state.read().config.clone();
         let mut new_config = (*config).clone();
-        
+
+        // Special handling for clock when it's centered
+        if module_id == "clock" && new_config.modules.center_modules.iter().any(|m| m == "clock") {
+            // Clock is centered, remove it from center and disable
+            new_config.modules.center_modules.retain(|m| m != "clock");
+            new_config.modules.clock.center = false;
+            info!("Disabled centered clock: {}", module_id);
+        }
         // Check if module exists in right_modules
-        if let Some(pos) = new_config.modules.right_modules.iter().position(|m| m == module_id) {
+        else if let Some(pos) = new_config.modules.right_modules.iter().position(|m| m == module_id) {
             // Remove it
             new_config.modules.right_modules.remove(pos);
             info!("Disabled module: {}", module_id);
         } else {
             // Add it back at the appropriate position
             let default_order = vec![
-                "media", "clipboard", "keyboard_layout", "gpu", "system_info", "disk", 
+                "media", "clipboard", "keyboard_layout", "gpu", "system_info", "disk",
                 "network", "bluetooth", "volume", "battery", "uptime", "clock"
             ];
             let insert_pos = default_order.iter()
@@ -1225,7 +1233,7 @@ fn toggle_module(hwnd: HWND, module_id: &str) {
                         .unwrap_or(new_config.modules.right_modules.len())
                 })
                 .unwrap_or(new_config.modules.right_modules.len());
-            
+
             new_config.modules.right_modules.insert(insert_pos, module_id.to_string());
             info!("Enabled module: {}", module_id);
         }
