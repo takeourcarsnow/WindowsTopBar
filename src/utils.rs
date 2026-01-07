@@ -453,23 +453,60 @@ pub fn toggle_night_light_via_powershell() -> bool {
 # Try to load UI Automation assemblies
 $loaded = $false
 try { Add-Type -AssemblyName UIAutomationClient; $loaded = $true } catch {}
-if (-not $loaded) {
-    try { Add-Type -AssemblyName UIAutomationTypes; $loaded = $true } catch {}
-}
-if (-not $loaded) { exit 3 }
+try { Add-Type -AssemblyName UIAutomationTypes; } catch {}
 
-Start-Process 'ms-settings:nightlight'
-Start-Sleep -Milliseconds 700
+# Add a tiny P/Invoke helper to control window state and send WM_CLOSE
+$pinvoke = @'
+using System;
+using System.Runtime.InteropServices;
+public static class Win32 {
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")]
+    public static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
+}
+'@
+Add-Type -TypeDefinition $pinvoke -PassThru | Out-Null
+
+# Helper to gracefully close Settings window
+function Close-SettingsWindow([IntPtr]$h) {
+    if ($h -ne [IntPtr]::Zero) {
+        # WM_CLOSE = 0x0010
+        [Win32]::SendMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Start-Sleep -Milliseconds 120
+        [Win32]::SendMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Start-Sleep -Milliseconds 120
+    }
+    # Also attempt to kill process by name as a last resort
+    Stop-Process -Name 'SystemSettings' -ErrorAction SilentlyContinue
+}
+
+# Launch Settings and try to minimize it immediately to avoid stealing focus
+$proc = Start-Process 'ms-settings:nightlight' -PassThru
+$hwnd = [IntPtr]::Zero
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Milliseconds 120
+    $p = Get-Process | Where-Object { $_.ProcessName -eq 'SystemSettings' -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+    if ($p) { $hwnd = [IntPtr]$p.MainWindowHandle; break }
+}
+if ($hwnd -ne [IntPtr]::Zero) {
+    # SW_SHOWMINNOACTIVE = 7 - minimize without activating
+    [Win32]::ShowWindowAsync($hwnd, 7) | Out-Null
+}
+
+# Automation: search for a TogglePattern element whose name contains Night
 $root = [System.Windows.Automation.AutomationElement]::RootElement
-$cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsTogglePatternAvailableProperty, $true)
-$els = $root.FindAll([System.Windows.Automation.TreeScope]::Subtree, $cond)
+$condToggle = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsTogglePatternAvailableProperty, $true)
+$els = $root.FindAll([System.Windows.Automation.TreeScope]::Subtree, $condToggle)
 foreach ($el in $els) {
     try {
         $name = $el.Current.Name
-        if ($null -ne $name -and ($name -like '*Night*' -or $name -like '*Night light*' -or $name -like '*NightLight*')) {
+        if ($null -ne $name -and ($name -match 'Night' -or $name -match 'nightlight' -or $name -match 'Night light')) {
             $tp = $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
             if ($tp -ne $null) {
                 $tp.Toggle()
+                Start-Sleep -Milliseconds 120
+                Close-SettingsWindow $hwnd
                 exit 0
             }
         }
@@ -477,15 +514,34 @@ foreach ($el in $els) {
         # ignore
     }
 }
+
+# Fallback: look for Button controls with 'Night' in their name and invoke
+$condButton = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+$buttons = $root.FindAll([System.Windows.Automation.TreeScope]::Subtree, $condButton)
+foreach ($b in $buttons) {
+    try {
+        $n = $b.Current.Name
+        if ($n -and ($n -match 'Night')) {
+            $ip = $b.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+            if ($ip -ne $null) { $ip.Invoke(); Start-Sleep -Milliseconds 120; Close-SettingsWindow $hwnd; exit 0 }
+        }
+    } catch {}
+}
+
+# Last resort: close/minimize settings and fail
+Start-Sleep -Milliseconds 200
+Close-SettingsWindow $hwnd
 exit 2
 "#;
 
-    // Run PowerShell script hidden and non-interactive
+    // Run PowerShell script without creating a console window and non-interactive
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
     match Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .arg("-NoProfile")
         .arg("-NonInteractive")
-        .arg("-WindowStyle")
-        .arg("Hidden")
         .arg("-Command")
         .arg(script)
         .output() {
