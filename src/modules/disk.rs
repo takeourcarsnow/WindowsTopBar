@@ -82,7 +82,7 @@ impl DiskModule {
     }
 
     /// Build the display text
-    fn build_display_text(&self, config: &crate::config::Config) -> String {
+    fn build_display_text(&self, _config: &crate::config::Config) -> String {
         if self.disks.is_empty() {
             return "💾 --".to_string();
         }
@@ -94,11 +94,8 @@ impl DiskModule {
             0
         };
 
-        if config.modules.disk.show_percentage {
-            format!("💾 {}%", usage_percent)
-        } else {
-            "💾".to_string()
-        }
+        // Always show percentage
+        format!("💾 {}%", usage_percent)
     }
 
     /// Get primary disk usage percentage
@@ -136,22 +133,19 @@ impl Module for DiskModule {
         "Disk Usage"
     }
 
-    fn display_text(&self, config: &crate::config::Config) -> String {
+    fn display_text(&self, _config: &crate::config::Config) -> String {
         if self.disks.is_empty() {
             return String::new();
         }
 
-        if config.modules.disk.show_percentage {
-            let primary = &self.disks[self.primary_disk_index];
-            let usage_percent = if primary.total_space > 0 {
-                (primary.used_space as f64 / primary.total_space as f64 * 100.0) as u32
-            } else {
-                0
-            };
-            format!("💾 {}%", usage_percent)
+        // Always show percentage
+        let primary = &self.disks[self.primary_disk_index];
+        let usage_percent = if primary.total_space > 0 {
+            (primary.used_space as f64 / primary.total_space as f64 * 100.0) as u32
         } else {
-            String::new()
-        }
+            0
+        };
+        format!("💾 {}%", usage_percent)
     }
 
     fn update(&mut self, config: &crate::config::Config) {

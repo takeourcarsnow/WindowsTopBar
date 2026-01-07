@@ -268,19 +268,20 @@ impl GpuModule {
     fn build_display_text(&self, config: &crate::config::Config) -> String {
         let mut parts = Vec::new();
 
+        // Usage remains configurable
         if config.modules.gpu.show_usage {
             parts.push(format!("GPU {:.0}%", self.gpu_info.usage));
         }
 
-        if config.modules.gpu.show_memory && self.gpu_info.memory_total > 0 {
+        // Always show VRAM percent if available
+        if self.gpu_info.memory_total > 0 {
             let mem_percent = (self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as u32;
             parts.push(format!("VRAM {}%", mem_percent));
         }
 
-        if config.modules.gpu.show_temperature {
-            if let Some(temp) = self.gpu_info.temperature {
-                parts.push(format!("{:.0}°C", temp));
-            }
+        // Always show temperature if available
+        if let Some(temp) = self.gpu_info.temperature {
+            parts.push(format!("{:.0}°C", temp));
         }
 
         if parts.is_empty() {
@@ -308,19 +309,20 @@ impl Module for GpuModule {
     fn display_text(&self, config: &crate::config::Config) -> String {
         let mut parts = Vec::new();
 
+        // Usage remains configurable
         if config.modules.gpu.show_usage {
             parts.push(format!("GPU {:.0}%", self.gpu_info.usage));
         }
 
-        if config.modules.gpu.show_memory && self.gpu_info.memory_total > 0 {
+        // Always show VRAM percent if available
+        if self.gpu_info.memory_total > 0 {
             let mem_percent = (self.gpu_info.memory_used as f64 / self.gpu_info.memory_total as f64 * 100.0) as u32;
             parts.push(format!("VRAM {}%", mem_percent));
         }
 
-        if config.modules.gpu.show_temperature {
-            if let Some(temp) = self.gpu_info.temperature {
-                parts.push(format!("{:.0}°C", temp));
-            }
+        // Always show temperature if available
+        if let Some(temp) = self.gpu_info.temperature {
+            parts.push(format!("{:.0}°C", temp));
         }
 
         if parts.is_empty() {

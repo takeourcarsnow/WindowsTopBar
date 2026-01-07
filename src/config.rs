@@ -531,10 +531,6 @@ pub struct GpuConfig {
     pub enabled: bool,
     /// Show GPU usage percentage
     pub show_usage: bool,
-    /// Show memory usage
-    pub show_memory: bool,
-    /// Show temperature
-    pub show_temperature: bool,
     /// Show as a moving graph instead of percentage
     pub show_graph: bool,
     /// Update interval in milliseconds
@@ -546,8 +542,6 @@ impl Default for GpuConfig {
         Self {
             enabled: true,
             show_usage: true,
-            show_memory: false,
-            show_temperature: false,
             show_graph: false,
             update_interval_ms: 1500,  // More responsive updates
         }
@@ -563,8 +557,6 @@ pub struct KeyboardLayoutConfig {
     pub show_full_name: bool,
     /// Show flag emoji
     pub show_flag: bool,
-    /// Auto-switch on window focus
-    pub auto_switch: bool,
 }
 
 impl Default for KeyboardLayoutConfig {
@@ -573,7 +565,6 @@ impl Default for KeyboardLayoutConfig {
             enabled: true,
             show_full_name: false,
             show_flag: false,
-            auto_switch: false,
         }
     }
 }
@@ -647,10 +638,6 @@ impl Default for HotkeyConfig {
 pub struct UptimeConfig {
     /// Enable uptime module
     pub enabled: bool,
-    /// Show days in uptime
-    pub show_days: bool,
-    /// Use compact format (1d 2h vs 1 day, 2 hours)
-    pub compact_format: bool,
     /// Show icon
     pub show_icon: bool,
 }
@@ -659,8 +646,6 @@ impl Default for UptimeConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            show_days: true,
-            compact_format: true,
             show_icon: true,
         }
     }
@@ -692,10 +677,6 @@ impl Default for BluetoothConfig {
 pub struct DiskConfig {
     /// Enable disk module
     pub enabled: bool,
-    /// Show usage percentage
-    pub show_percentage: bool,
-    /// Show activity indicator
-    pub show_activity: bool,
     /// Primary disk to monitor (e.g., "C:")
     pub primary_disk: String,
     /// Update interval in milliseconds
@@ -706,8 +687,6 @@ impl Default for DiskConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            show_percentage: true,
-            show_activity: false,
             primary_disk: "C:".to_string(),
             update_interval_ms: 5000,
         }

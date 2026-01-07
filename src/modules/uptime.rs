@@ -31,30 +31,18 @@ impl UptimeModule {
     }
 
     /// Build the display text
-    fn build_display_text(&self, config: &crate::config::Config) -> String {
+    fn build_display_text(&self, _config: &crate::config::Config) -> String {
+        // Always use compact format and show days when present
         let days = self.uptime_secs / 86400;
         let hours = (self.uptime_secs % 86400) / 3600;
         let minutes = (self.uptime_secs % 3600) / 60;
 
-        if config.modules.uptime.compact_format {
-            if days > 0 && config.modules.uptime.show_days {
-                format!("⏱ {}d {}h", days, hours)
-            } else if hours > 0 {
-                format!("⏱ {}h {}m", hours, minutes)
-            } else {
-                format!("⏱ {}m", minutes)
-            }
-        } else if days > 0 && config.modules.uptime.show_days {
-            let day_word = if days == 1 { "day" } else { "days" };
-            let hour_word = if hours == 1 { "hour" } else { "hours" };
-            format!("⏱ {} {}, {} {}", days, day_word, hours, hour_word)
+        if days > 0 {
+            format!("⏱ {}d {}h", days, hours)
         } else if hours > 0 {
-            let hour_word = if hours == 1 { "hour" } else { "hours" };
-            let min_word = if minutes == 1 { "minute" } else { "minutes" };
-            format!("⏱ {} {}, {} {}", hours, hour_word, minutes, min_word)
+            format!("⏱ {}h {}m", hours, minutes)
         } else {
-            let min_word = if minutes == 1 { "minute" } else { "minutes" };
-            format!("⏱ {} {}", minutes, min_word)
+            format!("⏱ {}m", minutes)
         }
     }
 
