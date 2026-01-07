@@ -535,6 +535,8 @@ pub struct VolumeConfig {
     pub scroll_to_change: bool,
     /// Volume step for scroll
     pub scroll_step: u32,
+    /// Update interval in milliseconds
+    pub update_interval_ms: u64,
 }
 
 impl Default for VolumeConfig {
@@ -543,6 +545,7 @@ impl Default for VolumeConfig {
             show_percentage: false,
             scroll_to_change: true,
             scroll_step: 5,
+            update_interval_ms: 5000, // Volume changes less frequently
         }
     }
 }

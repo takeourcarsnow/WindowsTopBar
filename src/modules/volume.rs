@@ -174,19 +174,14 @@ impl Module for VolumeModule {
         "Volume"
     }
 
-    fn display_text(&self, config: &crate::config::Config) -> String {
-        let icon = self.get_volume_icon();
-
-        if config.modules.volume.show_percentage {
-            format!("{} {}%", icon, self.volume_level)
-        } else {
-            icon.to_string()
-        }
+    fn display_text(&self, _config: &crate::config::Config) -> String {
+        // Return cached text to avoid rebuilding strings unnecessarily
+        self.cached_text.clone()
     }
 
     fn update(&mut self, config: &crate::config::Config) {
-        // Update every 5 seconds
-        if self.last_update.elapsed().as_secs() >= 5 {
+        // Use configurable update interval from config
+        if self.last_update.elapsed().as_secs() >= (config.modules.volume.update_interval_ms / 1000) as u64 {
             self.force_update(config);
         }
     }

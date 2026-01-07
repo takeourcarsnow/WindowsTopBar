@@ -157,9 +157,45 @@ impl ModuleRegistry {
 
     /// Update all modules
     pub fn update_all(&mut self, config: &crate::config::Config) {
-        for module in self.modules.values_mut() {
-            module.update(config);
+        // Check if we're on battery power to adjust update frequencies
+        let _is_on_battery = self.is_on_battery();
+        let _battery_multiplier = if _is_on_battery { 2 } else { 1 }; // 2x slower on battery
+
+        // Collect all visible module IDs to avoid updating hidden modules
+        let mut visible_ids = std::collections::HashSet::new();
+        visible_ids.extend(&self.order_left);
+        visible_ids.extend(&self.order_center);
+        visible_ids.extend(&self.order_right);
+
+        for (id, module) in self.modules.iter_mut() {
+            // Skip updating modules that are not in the current layout
+            if !visible_ids.contains(id) {
+                continue;
+            }
+
+            // Add error boundary to prevent one failing module from crashing the app
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // For battery optimization, we could modify the config temporarily
+                // but for now, modules handle their own update intervals
+                module.update(config);
+            }));
+            
+            if let Err(err) = result {
+                log::warn!("Module '{}' update failed: {:?}", id, err);
+                // Continue with other modules even if one fails
+            }
         }
+    }
+
+    /// Check if the system is running on battery power
+    fn is_on_battery(&self) -> bool {
+        // Try to get battery status from the battery module if available
+        if let Some(module) = self.modules.get("battery") {
+            if let Some(battery) = module.as_any().downcast_ref::<crate::modules::battery::BatteryModule>() {
+                return battery.has_battery() && !battery.is_plugged_in();
+            }
+        }
+        false // Assume plugged in if we can't determine
     }
 
     /// Get left-side modules in order

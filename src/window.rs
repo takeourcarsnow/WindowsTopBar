@@ -1837,7 +1837,17 @@ fn show_volume_menu(hwnd: HWND, x: i32, y: i32) {
             config.modules.volume.show_percentage,
         );
         AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
-        append_menu_item(menu, VOL_MUTE, "Mute", false); // TODO: Get actual mute state
+        
+        // Get actual mute state from volume module
+        let mut is_muted = false;
+        with_renderer(|renderer| {
+            if let Some(module) = renderer.module_registry.get("volume") {
+                if let Some(vm) = module.as_any().downcast_ref::<crate::modules::volume::VolumeModule>() {
+                    is_muted = vm.is_muted();
+                }
+            }
+        });
+        append_menu_item(menu, VOL_MUTE, "Mute", is_muted);
 
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(

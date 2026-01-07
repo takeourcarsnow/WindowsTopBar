@@ -18,7 +18,7 @@ mod utils;
 mod window;
 
 use anyhow::Result;
-use log::{info, LevelFilter};
+use log::{info};
 use std::sync::Arc;
 
 use crate::app::Application;
