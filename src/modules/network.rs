@@ -349,9 +349,9 @@ impl NetworkModule {
 
         if self.show_icon {
             let icon = match self.network_type {
-                NetworkType::Disconnected => "📵",
-                NetworkType::Ethernet => "🔗",
-                NetworkType::WiFi => self.get_wifi_icon(),
+                NetworkType::Disconnected => "\u{F384}", // WiFi off
+                NetworkType::Ethernet => "\u{E839}",     // Ethernet
+                NetworkType::WiFi => "\u{E701}",         // WiFi
                 NetworkType::Cellular => "📶",
                 NetworkType::Unknown => "🌐",
             };
@@ -421,9 +421,9 @@ impl Module for NetworkModule {
 
         if self.show_icon {
             let icon = match self.network_type {
-                NetworkType::Disconnected => "📵",
-                NetworkType::Ethernet => "🔗",
-                NetworkType::WiFi => self.get_wifi_icon(),
+                NetworkType::Disconnected => "\u{F384}", // WiFi off
+                NetworkType::Ethernet => "\u{E839}",     // Ethernet
+                NetworkType::WiFi => "\u{E701}",         // WiFi
                 NetworkType::Cellular => "📶",
                 NetworkType::Unknown => "🌐",
             };

@@ -424,30 +424,54 @@ impl Renderer {
                     }
 
                     "network" => {
-                        let network_text = self
-                            .module_registry
-                            .get("network")
-                            .map(|m| m.display_text(&*config))
-                            .unwrap_or_else(|| self.icons.get("wifi"));
+                        // Use Segoe Fluent Icons for the network glyphs so they render correctly
+                        let net_font = self.create_font("Segoe Fluent Icons", self.scale(15), false);
+                        unsafe {
+                            let old_font = SelectObject(hdc, net_font);
 
-                        // Reserve a fixed minimum width for the numeric speed portion to prevent layout shifting
-                        let sample = format!("{} 000.0↓/000.0↑", self.icons.get("ethernet"));
-                        let (sample_width, _) = self.measure_text(hdc, &sample);
-                        let min_width = sample_width + item_padding * 2;
+                            let network_text = self
+                                .module_registry
+                                .get("network")
+                                .map(|m| {
+                                    let t = m.display_text(&*config);
+                                    if t.trim().is_empty() {
+                                        self.icons.get("wifi")
+                                    } else {
+                                        t
+                                    }
+                                })
+                                .unwrap_or_else(|| self.icons.get("wifi"));
 
-                        x -= min_width;
-                        let network_rect = self.draw_module_text_fixed(
-                            hdc,
-                            x,
-                            bar_rect.height,
-                            &network_text,
-                            item_padding,
-                            min_width,
-                            theme,
-                        );
-                        self.module_bounds
-                            .insert("network".to_string(), network_rect);
-                        x -= item_spacing;
+                            // Switch back to default font for measuring text with speed numbers
+                            let _ = SelectObject(hdc, old_font);
+
+                            // Reserve a fixed minimum width for the numeric speed portion to prevent layout shifting
+                            let sample = format!("{} 000.0↓/000.0↑", "\u{E839}"); // Ethernet icon as sample
+                            let (sample_width, _) = self.measure_text(hdc, &sample);
+                            let min_width = sample_width + item_padding * 2;
+
+                            x -= min_width;
+                            let (text_width, text_height) = self.measure_text(hdc, &network_text);
+                            let width = (text_width + item_padding * 2).max(min_width);
+                            let height = text_height + item_padding + 2;
+                            let y = (bar_rect.height - height) / 2;
+
+                            // Switch back to Fluent font for drawing the icon
+                            let _ = SelectObject(hdc, net_font);
+                            SetTextColor(hdc, theme.text_primary.colorref());
+                            let text_y = (bar_rect.height - text_height) / 2;
+                            // Center text within the fixed width
+                            let text_x = x + (width - text_width) / 2;
+                            self.draw_text(hdc, text_x, text_y, &network_text);
+
+                            let network_rect = Rect::new(x, y, width, height);
+                            self.module_bounds
+                                .insert("network".to_string(), network_rect);
+                            x -= item_spacing;
+
+                            let _ = SelectObject(hdc, old_font);
+                            let _ = DeleteObject(net_font);
+                        }
                     }
 
                     "system_info" => {
