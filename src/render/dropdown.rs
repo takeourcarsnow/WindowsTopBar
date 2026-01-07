@@ -232,54 +232,63 @@ impl DropdownMenu {
             let mut rect = RECT::default();
             GetClientRect(self.hwnd, &mut rect).ok();
 
-            // Draw background
-            let bg_brush = CreateSolidBrush(self.theme.background_secondary.to_colorref());
+            // Draw background with slightly elevated color
+            let bg_brush = CreateSolidBrush(self.theme.background.to_colorref());
             FillRect(hdc, &rect, bg_brush);
             let _ = DeleteObject(bg_brush);
 
-            // Draw border
-            let border_brush = CreateSolidBrush(self.theme.border.to_colorref());
+            // Draw subtle border with slight alpha
+            let border_brush = CreateSolidBrush(self.theme.border_hover.to_colorref());
             FrameRect(hdc, &rect, border_brush);
             let _ = DeleteObject(border_brush);
 
             // Draw items
             let mut y = self.padding;
             
-            // Create font
+            // Create font - macOS uses SF Pro, we use Segoe UI Variable
             let font = self.create_font(13, false);
             let old_font = SelectObject(hdc, font);
             SetBkMode(hdc, TRANSPARENT);
 
             for (index, item) in self.items.iter().enumerate() {
                 if item.is_separator {
-                    // Draw separator line with proper margins
+                    // Draw separator with macOS-style subtle divider
                     let sep_rect = RECT {
-                        left: self.padding + 8,
-                        top: y + 6,
-                        right: rect.right - self.padding - 8,
-                        bottom: y + 7,
+                        left: self.padding + 12,
+                        top: y + 7,
+                        right: rect.right - self.padding - 12,
+                        bottom: y + 8,
                     };
                     let sep_brush = CreateSolidBrush(self.theme.border.to_colorref());
                     FillRect(hdc, &sep_rect, sep_brush);
                     let _ = DeleteObject(sep_brush);
-                    y += 13;  // Match new separator height
+                    y += 15;  // More breathing room
                 } else {
-                    // Draw item
+                    // Draw item with padding for rounded effect
                     let item_rect = RECT {
-                        left: self.padding,
+                        left: self.padding + 4,
                         top: y,
-                        right: rect.right - self.padding,
+                        right: rect.right - self.padding - 4,
                         bottom: y + self.item_height,
                     };
 
-                    // Hover background
+                    // macOS-style hover with rounded corners (simulate with inner rect)
                     if Some(index) == self.hover_index && !item.is_disabled {
-                        let hover_brush = CreateSolidBrush(self.theme.accent.to_colorref());
+                        let hover_color = if self.theme.is_dark {
+                            Color::new(255, 255, 255, 20)  // Subtle white glow
+                        } else {
+                            self.theme.accent.with_alpha(230)  // Soft accent
+                        };
+                        let hover_brush = CreateSolidBrush(hover_color.to_colorref());
                         let rounded_rect = item_rect;
                         FillRect(hdc, &rounded_rect, hover_brush);
                         let _ = DeleteObject(hover_brush);
 
-                        SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
+                        if self.theme.is_dark {
+                            SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
+                        } else {
+                            SetTextColor(hdc, Color::rgb(255, 255, 255).to_colorref());
+                        }
                     } else {
                         let color = if item.is_disabled {
                             self.theme.text_disabled
@@ -289,19 +298,19 @@ impl DropdownMenu {
                         SetTextColor(hdc, color.to_colorref());
                     }
 
-                    // Draw icon if present
-                    let text_x = self.padding + 8;
+                    // Draw icon if present (better spacing)
+                    let text_x = self.padding + 10;
                     if let Some(ref icon) = item.icon {
                         let icon_wide: Vec<u16> = icon.encode_utf16().chain(std::iter::once(0)).collect();
-                        let _ = TextOutW(hdc, text_x, y + 4, &icon_wide[..icon_wide.len()-1]);
+                        let _ = TextOutW(hdc, text_x, y + 6, &icon_wide[..icon_wide.len()-1]);
                     }
 
-                    // Draw label
-                    let label_x = text_x + 24;
+                    // Draw label with improved vertical centering
+                    let label_x = text_x + 28;
                     let label_wide: Vec<u16> = item.label.encode_utf16().chain(std::iter::once(0)).collect();
-                    let _ = TextOutW(hdc, label_x, y + 5, &label_wide[..label_wide.len()-1]);
+                    let _ = TextOutW(hdc, label_x, y + 6, &label_wide[..label_wide.len()-1]);
 
-                    // Draw shortcut
+                    // Draw shortcut with secondary color
                     if let Some(ref shortcut) = item.shortcut {
                         SetTextColor(hdc, self.theme.text_secondary.to_colorref());
                         let shortcut_wide: Vec<u16> = shortcut.encode_utf16().chain(std::iter::once(0)).collect();
@@ -309,20 +318,20 @@ impl DropdownMenu {
                         let mut size = windows::Win32::Foundation::SIZE::default();
                         let _ = GetTextExtentPoint32W(hdc, &shortcut_wide[..shortcut_wide.len()-1], &mut size);
                         
-                        let _ = TextOutW(hdc, item_rect.right - size.cx - 8, y + 5, &shortcut_wide[..shortcut_wide.len()-1]);
+                        let _ = TextOutW(hdc, item_rect.right - size.cx - 12, y + 6, &shortcut_wide[..shortcut_wide.len()-1]);
                     }
 
                     // Draw submenu arrow
                     if item.submenu.is_some() {
                         SetTextColor(hdc, self.theme.text_secondary.to_colorref());
                         let arrow: Vec<u16> = "▶".encode_utf16().chain(std::iter::once(0)).collect();
-                        let _ = TextOutW(hdc, item_rect.right - 16, y + 5, &arrow[..arrow.len()-1]);
+                        let _ = TextOutW(hdc, item_rect.right - 20, y + 6, &arrow[..arrow.len()-1]);
                     }
 
                     // Draw checkmark
                     if item.is_checked {
                         let check: Vec<u16> = "✓".encode_utf16().chain(std::iter::once(0)).collect();
-                        let _ = TextOutW(hdc, self.padding, y + 5, &check[..check.len()-1]);
+                        let _ = TextOutW(hdc, self.padding + 4, y + 6, &check[..check.len()-1]);
                     }
 
                     y += self.item_height;
@@ -334,16 +343,17 @@ impl DropdownMenu {
         }
     }
 
-    /// Create a font
+    /// Create a font with macOS-inspired styling
     fn create_font(&self, size: i32, bold: bool) -> HFONT {
         unsafe {
             let family: Vec<u16> = "Segoe UI Variable Text".encode_utf16().chain(std::iter::once(0)).collect();
             let mut lf = LOGFONTW::default();
-            lf.lfHeight = -size - 1;  // Slightly larger for readability
-            lf.lfWeight = if bold { FW_SEMIBOLD.0 as i32 } else { FW_NORMAL.0 as i32 };
+            lf.lfHeight = -size;
+            lf.lfWeight = if bold { 600 } else { 400 };  // SF Pro-inspired weights
             lf.lfCharSet = DEFAULT_CHARSET;
-            lf.lfQuality = CLEARTYPE_QUALITY;
+            lf.lfQuality = CLEARTYPE_QUALITY;  // Smooth text rendering
             lf.lfOutPrecision = OUT_TT_PRECIS;
+            lf.lfPitchAndFamily = VARIABLE_PITCH.0 | FF_SWISS.0;
             
             let face_len = family.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family[..face_len]);
@@ -357,7 +367,7 @@ impl DropdownMenu {
         let mut current_y = self.padding;
         
         for (index, item) in self.items.iter().enumerate() {
-            let item_h = if item.is_separator { 13 } else { self.item_height };
+            let item_h = if item.is_separator { 15 } else { self.item_height };
             
             if y >= current_y && y < current_y + item_h {
                 if !item.is_separator && !item.is_disabled {

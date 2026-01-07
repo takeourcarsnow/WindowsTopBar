@@ -130,15 +130,15 @@ impl Default for AppearanceConfig {
         Self {
             theme_mode: ThemeMode::Auto,
             accent_color: None,
-            bar_height: 32,  // Taller for better touch and readability
-            opacity: 0.92,   // Higher opacity for better text legibility
+            bar_height: 34,  // macOS-inspired height for better proportions
+            opacity: 0.90,   // Balanced opacity for modern glass aesthetic
             blur_enabled: true,
-            blur_intensity: 40,  // Stronger blur for modern glass effect
-            corner_radius: 10,   // Slightly larger radius for smoother look
-            font_family: "Segoe UI Variable Text".to_string(),  // Modern variable font
+            blur_intensity: 50,  // Enhanced blur for premium glass effect
+            corner_radius: 12,   // macOS-style rounded corners
+            font_family: "Segoe UI Variable Text".to_string(),  // SF Pro-inspired modern font
             font_size: 13,
             animations_enabled: true,
-            animation_speed: 120,  // Snappier animations
+            animation_speed: 100,  // macOS-style snappy animations (100ms)
             shadow_enabled: true,
             position: BarPosition::Top,
             monitor: 0,

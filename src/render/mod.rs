@@ -154,11 +154,12 @@ impl Renderer {
         // First update all modules to get fresh data
         self.module_registry.update_all(&config);
         
-        let padding = self.scale(10);  // More breathing room
-        let item_spacing = self.scale(6);  // Better spacing between modules
-        let item_padding = self.scale(10);  // Larger touch targets
+        let padding = self.scale(8);  // Edge padding
+        let item_spacing = self.scale(4);  // Minimal spacing between items
+        let item_padding = self.scale(8);  // Internal item padding
 
-        // Create font - use Variable Text for optimal readability at UI sizes
+        // Create font - use optimized modern fonts for macOS-like aesthetics
+        // Segoe UI Variable offers better clarity, while Inter is a great fallback
         let font = self.create_font("Segoe UI Variable Text", self.scale(13), false);
         let bold_font = self.create_font("Segoe UI Variable Display", self.scale(13), true);
 
@@ -767,20 +768,20 @@ impl Renderer {
         }
     }
 
-    /// Create a font with optimized rendering for Windows 11
+    /// Create a font with optimized rendering for modern UI (macOS-inspired)
     fn create_font(&self, family: &str, size: i32, bold: bool) -> HFONT {
         unsafe {
             let family_wide: Vec<u16> = family.encode_utf16().chain(std::iter::once(0)).collect();
             let mut lf = LOGFONTW::default();
             lf.lfHeight = -size;
-            // Use medium weight for regular text, semibold for emphasis
-            lf.lfWeight = if bold { FW_SEMIBOLD.0 as i32 } else { FW_MEDIUM.0 as i32 };
+            // Use SF Pro-inspired weights: regular (400) and semibold (600)
+            // This gives better visual hierarchy and readability
+            lf.lfWeight = if bold { 600 } else { 400 };
             lf.lfCharSet = DEFAULT_CHARSET;
             lf.lfOutPrecision = OUT_TT_PRECIS;  // TrueType preferred
             lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            lf.lfQuality = CLEARTYPE_QUALITY;  // Best text rendering
+            lf.lfQuality = CLEARTYPE_QUALITY;  // ClearType for smooth text
             lf.lfPitchAndFamily = VARIABLE_PITCH.0 | FF_SWISS.0;
-            // Enable antialiasing for smooth edges
             
             let face_len = family_wide.len().min(32);
             lf.lfFaceName[..face_len].copy_from_slice(&family_wide[..face_len]);
