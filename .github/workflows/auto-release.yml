@@ -1,0 +1,78 @@
+name: CI & Auto Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*', 'release-*' ]
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run tests
+        run: cargo test --workspace --all-features --verbose
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Package exe into zip
+        id: zip
+        shell: pwsh
+        run: |
+          $ref = '${{ github.ref }}'
+          # Determine a useful artifact name
+          if ($ref -like 'refs/tags/*') {
+            $refName = '${{ github.ref_name }}'
+          } else {
+            $refName = "nightly-${{ github.run_number }}"
+          }
+
+          $out = "topbar-$refName.zip"
+          Compress-Archive -Path "target\release\topbar.exe" -DestinationPath $out -Force
+          echo "artifact=$out" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create or update Release for tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ steps.zip.outputs.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create nightly draft Release for main
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly-${{ github.run_number }}
+          name: Nightly build #${{ github.run_number }}
+          draft: true
+          files: ${{ steps.zip.outputs.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build as workflow artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: topbar-build
+          path: ${{ steps.zip.outputs.artifact }}
