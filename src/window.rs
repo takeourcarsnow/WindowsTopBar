@@ -544,7 +544,26 @@ unsafe extern "system" fn window_proc(
         WM_MOUSEWHEEL => {
             let delta = ((wparam.0 >> 16) & 0xFFFF) as i16;
             debug!("Mouse wheel delta: {}", delta);
-            // Could handle volume control etc here
+
+            // Get cursor position from lparam (client coords) and dispatch to the module under cursor
+            let x = (lparam.0 & 0xFFFF) as i16 as i32;
+            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+
+            // Forward the scroll to the module under the cursor (if any)
+            with_renderer(|renderer| {
+                if let Some(module_id) = renderer.hit_test(x, y) {
+                    if let Some(module) = renderer.module_registry.get_mut(&module_id) {
+                        module.on_scroll(delta as i32);
+                    }
+                }
+            });
+
+            // Request redraw to reflect changed volume/tooltip immediately
+            if let Some(state) = get_window_state() {
+                state.write().needs_redraw = true;
+            }
+            let _ = InvalidateRect(hwnd, None, false);
+
             LRESULT(0)
         }
 
