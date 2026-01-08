@@ -13,7 +13,7 @@ use crate::config::Config;
 
 use super::state::get_window_state;
 use super::renderer::with_renderer;
-use super::config_handlers::{open_config_file, reload_config, reset_config, toggle_config_bool, toggle_module};
+use super::config_handlers::{open_config_file, reload_config, reset_config, install_mac_cursors, toggle_config_bool, toggle_module};
 
 // Menu item IDs
 const MENU_SHOW_CLOCK: u32 = 1001;
@@ -548,6 +548,7 @@ pub fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
 
         // App menu
         2501 => show_about_dialog(),
+        2506 => install_mac_cursors(hwnd),
         2502 => open_config_file(),
         2503 => reload_config(hwnd),
         2505 => reset_config(hwnd),

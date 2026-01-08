@@ -64,6 +64,7 @@ const APP_ABOUT: u32 = 2501;
 const APP_SETTINGS: u32 = 2502;
 const APP_RELOAD: u32 = 2503;
 const APP_RESET: u32 = 2505;
+const APP_INSTALL_CURSORS: u32 = 2506;
 const APP_EXIT: u32 = 2504;
 
 /// Handle module click actions - show in-app configuration dropdowns
@@ -390,6 +391,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
 fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
     let cmd = show_popup_menu(hwnd, x, y, |menu| {
         append_menu_item(menu, APP_ABOUT, "About TopBar", false);
+        append_menu_item(menu, APP_INSTALL_CURSORS, "Install macOS Cursors", false);
         unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None).ok(); }
         append_menu_item(menu, APP_SETTINGS, "Open Config File", false);
         append_menu_item(menu, APP_RELOAD, "Reload Config", false);

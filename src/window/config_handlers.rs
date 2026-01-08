@@ -168,8 +168,74 @@ pub fn reset_config(hwnd: HWND) {
     }
 }
 
+/// Install bundled macOS-style cursors by running the INF 'Install.inf' in the resources folder.
+/// This will invoke the system installer (may prompt for UAC) and display a confirmation on error/success.
+pub fn install_mac_cursors(hwnd: HWND) {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::core::w;
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_OK, MB_ICONERROR, MB_OKCANCEL, IDOK};
+
+    // Try to locate the INF file in a few candidate locations relative to the executable and current directory.
+    let mut candidates = Vec::new();
+    if let Ok(mut exe_path) = std::env::current_exe() {
+        if let Some(dir) = exe_path.parent() {
+            candidates.push(dir.join("resources").join("macoscursors").join("Install.inf"));
+            candidates.push(dir.join("..").join("resources").join("macoscursors").join("Install.inf"));
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("resources").join("macoscursors").join("Install.inf"));
+    }
+
+    let inf = candidates.into_iter().find(|p| p.exists());
+    if inf.is_none() {
+        unsafe {
+            let msg = "Could not find 'Install.inf' in the expected resources path.";
+            let title = "Install Cursors";
+            let msg_w: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
+            let title_w: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+            MessageBoxW(None, PCWSTR(msg_w.as_ptr()), PCWSTR(title_w.as_ptr()), MB_OK | MB_ICONERROR);
+        }
+        return;
+    }
+    let inf = inf.unwrap();
+
+    // Ask the user to continue
+    unsafe {
+        let title = "Install macOS Cursors";
+        let msg = format!("Installer INF found at:\n{}\n\nClick OK to run the installer (you may be prompted for administrator permission).", inf.display());
+        let msg_w: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
+        let title_w: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+        let resp = MessageBoxW(None, PCWSTR(msg_w.as_ptr()), PCWSTR(title_w.as_ptr()), MB_OKCANCEL | MB_ICONWARNING);
+        if resp.0 != IDOK.0 {
+            return;
+        }
+    }
+
+    // Launch installer via ShellExecute 'install' verb
+    let path_wide: Vec<u16> = inf.to_string_lossy().encode_utf16().chain(std::iter::once(0)).collect();
+    unsafe {
+        let h = ShellExecuteW(None, w!("install"), PCWSTR(path_wide.as_ptr()), None, None, SW_SHOWNORMAL);
+        // According to ShellExecute docs, return value > 32 indicates success
+        if (h.0 as isize) <= 32 {
+            let title = "Install Cursors";
+            let msg = format!("Failed to launch installer (error code {}).", h.0 as isize);
+            let msg_w: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
+            let title_w: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+            MessageBoxW(None, PCWSTR(msg_w.as_ptr()), PCWSTR(title_w.as_ptr()), MB_OK | MB_ICONERROR);
+        } else {
+            let title = "Install Cursors";
+            let msg = "Installer launched. Follow the system dialogs to install the cursors.";
+            let msg_w: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
+            let title_w: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+            MessageBoxW(None, PCWSTR(msg_w.as_ptr()), PCWSTR(title_w.as_ptr()), MB_OK | MB_ICONWARNING);
+        }
+    }
+
+}
+
 /// Default order of right-side modules for insertion position calculation
-const DEFAULT_RIGHT_MODULE_ORDER: &[&str] = &[
+const DEFAULT_RIGHT_MODULE_ORDER: &[&str] = &[ 
     "weather",
     "media",
     "clipboard",
