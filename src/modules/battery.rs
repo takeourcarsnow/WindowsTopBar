@@ -1,6 +1,6 @@
 //! Battery module for displaying battery status
 
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
 use super::Module;
@@ -26,7 +26,9 @@ impl BatteryModule {
             is_plugged_in: false,
             seconds_remaining: None,
             has_battery: true,
-            last_update: Instant::now(),
+            // Set last_update in the past so the first call to update() will
+            // trigger an immediate force_update and populate the UI promptly.
+            last_update: Instant::now() - Duration::from_secs(30),
         }
     }
 
