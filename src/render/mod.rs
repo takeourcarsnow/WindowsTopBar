@@ -820,28 +820,21 @@ impl Renderer {
                                     let right = center_x + radius;
                                     let bottom = center_y + radius;
 
-                                    // Draw subtle background circle (represents free space)
-                                            let bg_brush = CreateSolidBrush(theme.background_secondary.colorref());
+                                    // Draw background circle (free space) - grey
+                                            let bg_brush = CreateSolidBrush(theme.text_secondary.colorref());
                                             let old_bg_brush = SelectObject(hdc, bg_brush);
-                                            let outline_pen = CreatePen(PS_SOLID, 0, theme.border.colorref());
-                                            let old_outline = SelectObject(hdc, outline_pen);
+                                            // No outline - use a transparent/null approach by not drawing a border
                                             let _ = Ellipse(hdc, left, top, right, bottom);
-                                            let _ = SelectObject(hdc, old_outline);
-                                            let _ = DeleteObject(outline_pen);
                                             let _ = SelectObject(hdc, old_bg_brush);
                                             let _ = DeleteObject(bg_brush);
 
                                             if usage_percent <= 0.0 {
-                                                // nothing else to draw (empty disk)
+                                                // nothing else to draw (empty disk - all free/grey)
                                             } else if usage_percent >= 1.0 {
-                                                // Full disk: draw filled circle using a light theme color
-                                                let fg_brush = CreateSolidBrush(theme.text_secondary.colorref());
+                                                // Full disk: draw filled circle using inverted colors (dark/inverted)
+                                                let fg_brush = CreateSolidBrush(theme.background.colorref());
                                                 let old_brush = SelectObject(hdc, fg_brush);
-                                                let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
-                                                let old_pen = SelectObject(hdc, pen);
                                                 let _ = Ellipse(hdc, left, top, right, bottom);
-                                                let _ = SelectObject(hdc, old_pen);
-                                                let _ = DeleteObject(pen);
                                                 let _ = SelectObject(hdc, old_brush);
                                                 let _ = DeleteObject(fg_brush);
                                             } else {
@@ -852,14 +845,10 @@ impl Renderer {
                                                 let x2 = center_x + (end.cos() * radius as f32) as i32;
                                                 let y2 = center_y + (end.sin() * radius as f32) as i32;
 
-                                                // Draw used slice with a light theme color
-                                                let fg_brush = CreateSolidBrush(theme.text_secondary.colorref());
+                                                // Draw used slice with inverted colors (dark background for used space)
+                                                let fg_brush = CreateSolidBrush(theme.background.colorref());
                                                 let old_brush = SelectObject(hdc, fg_brush);
-                                                let pen = CreatePen(PS_SOLID, 0, theme.text_secondary.colorref());
-                                                let old_pen = SelectObject(hdc, pen);
                                                 let _ = Pie(hdc, left, top, right, bottom, x1, y1, x2, y2);
-                                                let _ = SelectObject(hdc, old_pen);
-                                                let _ = DeleteObject(pen);
                                                 let _ = SelectObject(hdc, old_brush);
                                                 let _ = DeleteObject(fg_brush);
                                             }

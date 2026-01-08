@@ -59,6 +59,8 @@ pub struct SearchIndex {
     count: usize,
     /// Map of lowercase extension -> list of full paths
     ext_map: HashMap<String, Vec<String>>,
+    /// Map of paths that are from app/program directories (Start Menu, Program Files, etc.)
+    app_paths: std::collections::HashSet<String>,
 }
 
 impl SearchIndex {
@@ -88,6 +90,27 @@ impl SearchIndex {
 
         // Prepare extension map while scanning
         let mut ext_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut app_paths = std::collections::HashSet::new();
+
+        // Identify common app directories by pattern
+        let is_app_directory = |path: &str| -> bool {
+            let lower = path.to_lowercase();
+            // Program Files directories
+            lower.contains("\\program files\\") || 
+            lower.contains("\\program files (x86)\\") ||
+            // Start Menu locations
+            lower.contains("\\start menu\\") ||
+            lower.contains("\\microsoft\\windows\\start menu\\") ||
+            // AppData program installations
+            lower.contains("\\appdata\\local\\programs\\") ||
+            lower.contains("\\appdata\\roaming\\") && lower.contains("\\.exe") ||
+            // Common installation directories
+            lower.contains("\\common files\\") ||
+            lower.contains("\\commonprogramfiles\\") ||
+            // Portable apps and other app locations
+            (lower.contains("\\app\\") && lower.ends_with(".exe")) ||
+            (lower.contains("\\application\\") && lower.ends_with(".exe"))
+        };
 
         for root in roots {
             log::info!("Indexing directory: {}", root.display());
@@ -107,6 +130,11 @@ impl SearchIndex {
                     let full = entry.path().to_string_lossy().to_string();
                     // record key for fst
                     keys.push(format!("{}\0{}", filename, full));
+
+                    // Check if this path is in an app-related directory
+                    if is_app_directory(&full) {
+                        app_paths.insert(full.clone());
+                    }
 
                     // record extension -> full path
                     if let Some(ext_os) = entry.path().extension() {
@@ -136,7 +164,7 @@ impl SearchIndex {
         IS_BUILDING.store(false, Ordering::Relaxed);
         log::info!("Search index ready with {} files", count);
 
-        Ok(Self { set, count, ext_map })
+        Ok(Self { set, count, ext_map, app_paths })
     }
 
     /// Return the number of indexed entries
@@ -144,24 +172,41 @@ impl SearchIndex {
         self.count
     }
 
-    /// Search for filenames that start with `prefix` (case-insensitive)
+    /// Search for filenames that start with `prefix` (case-insensitive) with smart ranking
     pub fn search_prefix(&self, prefix: &str, limit: usize) -> Vec<String> {
         let q = prefix.to_lowercase();
         let matcher = Str::new(&q).starts_with();
         let mut stream = self.set.search(&matcher).into_stream();
 
-        let mut res = Vec::new();
+        let mut all_results = Vec::new();
         while let Some(key) = stream.next() {
-            if res.len() >= limit {
-                break;
-            }
             if let Ok(s) = std::str::from_utf8(key) {
                 if let Some(pos) = s.find('\0') {
-                    res.push(s[pos + 1..].to_string());
+                    let filename = &s[..pos];
+                    let full_path = &s[pos + 1..];
+                    all_results.push((filename.to_string(), full_path.to_string()));
                 }
             }
         }
-        res
+
+        // Score and sort results by relevance
+        let mut scored = all_results
+            .into_iter()
+            .map(|(filename, path)| {
+                let score = calculate_relevance_score(&filename, &path, &q, &self.app_paths);
+                (path, score)
+            })
+            .collect::<Vec<_>>();
+
+        // Sort by score descending, then by path for stable ordering
+        scored.sort_by(|a, b| {
+            match b.1.partial_cmp(&a.1) {
+                Some(std::cmp::Ordering::Equal) | None => a.0.cmp(&b.0),
+                Some(ord) => ord,
+            }
+        });
+
+        scored.into_iter().take(limit).map(|(path, _)| path).collect()
     }
 
     /// Search by extension (.ext or ext). Case-insensitive. Up to `limit` results
@@ -172,6 +217,48 @@ impl SearchIndex {
         }
         Vec::new()
     }
+}
+
+/// Calculate relevance score for a search result
+/// Higher scores = more relevant
+fn calculate_relevance_score(filename: &str, path: &str, query: &str, app_paths: &std::collections::HashSet<String>) -> f32 {
+    let mut score: f32 = 0.0;
+
+    // 1. Boost for applications/programs (highest priority)
+    if app_paths.contains(path) {
+        score += 1000.0;
+    }
+
+    // 2. Exact filename match (without extension)
+    let filename_no_ext = filename.split('.').next().unwrap_or(filename);
+    if filename_no_ext.to_lowercase() == query {
+        score += 500.0;
+    }
+
+    // 3. Filename starts with query (already guaranteed by prefix search)
+    // But boost if it's a closer match
+    if filename.to_lowercase().starts_with(query) {
+        let match_ratio = query.len() as f32 / filename.len() as f32;
+        score += 100.0 * match_ratio;
+    }
+
+    // 4. Penalty for very long paths (prefer files closer to root)
+    let depth = path.matches('\\').count() as f32;
+    score -= depth * 2.0;
+
+    // 5. Boost for executable files (.exe, .lnk, .bat)
+    if filename.ends_with(".exe") || filename.ends_with(".lnk") || filename.ends_with(".bat") {
+        score += 50.0;
+    }
+
+    // 6. Boost if filename appears at the very start of path (not in a subdirectory as much)
+    if path.to_lowercase().contains(&format!("\\{}", filename.to_lowercase())) {
+        let pos = path.to_lowercase().rfind(&format!("\\{}", filename.to_lowercase())).unwrap_or(0);
+        let prefix_depth = path[..pos].matches('\\').count();
+        score += 50.0 / (prefix_depth as f32 + 1.0);
+    }
+
+    score
 }
 
 

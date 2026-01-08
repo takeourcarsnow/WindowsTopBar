@@ -59,6 +59,10 @@ impl Application {
 
             std::thread::spawn(move || {
                 log::info!("Starting background search indexing...");
+                log::info!("Indexing {} root directories:", roots.len());
+                for root in &roots {
+                    log::info!("  - {}", root.display());
+                }
                 match SearchIndex::build_with_excludes(&roots, &config_clone.search.exclude_patterns) {
                     Ok(idx) => {
                         let len = idx.count();

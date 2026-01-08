@@ -692,7 +692,38 @@ pub struct SearchConfig {
 impl Default for SearchConfig {
     fn default() -> Self {
         let mut default_paths = Vec::new();
-        if let Some(h) = dirs::home_dir() { default_paths.push(h); }
+        
+        // Add home directory
+        if let Some(h) = dirs::home_dir() { 
+            default_paths.push(h); 
+        }
+        
+        // Add Program Files directories
+        if let Ok(pf) = std::env::var("ProgramFiles") {
+            default_paths.push(PathBuf::from(pf));
+        }
+        if let Ok(pf86) = std::env::var("ProgramFiles(x86)") {
+            default_paths.push(PathBuf::from(pf86));
+        }
+        
+        // Add Start Menu paths
+        if let Some(appdata) = dirs::data_dir() {
+            // User Start Menu
+            let start_menu = appdata.parent().unwrap_or(&appdata).join("Microsoft\\Windows\\Start Menu");
+            if start_menu.exists() {
+                default_paths.push(start_menu);
+            }
+        }
+        
+        // Add common application locations in AppData
+        if let Some(appdata) = dirs::data_local_dir() {
+            // Common app installation directory
+            let programs = appdata.join("Programs");
+            if programs.exists() {
+                default_paths.push(programs);
+            }
+        }
+        
         Self {
             enabled: true,
             index_paths: default_paths,
