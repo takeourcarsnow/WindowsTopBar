@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, RECT};
 use windows::Win32::UI::WindowsAndMessaging::*;
-use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::Shell::{ShellExecuteW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_SMALLICON};
 use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::Graphics::Gdi::*;
 
@@ -12,19 +12,23 @@ use crate::window::state::get_window_state;
 use crate::theme::Color;
 use crate::search; 
 use std::path::Path;
+use std::collections::HashMap;
 
 const SEARCH_CLASS: &str = "TopBarQuickSearchClass";
-const WIN_WIDTH: i32 = 680;
-const WIN_HEIGHT: i32 = 320;
-const ROW_HEIGHT: i32 = 36;
-const RESULTS_START_Y: i32 = 56;
+const WIN_WIDTH: i32 = 620;
+const WIN_HEIGHT: i32 = 420;
+const ROW_HEIGHT: i32 = 56;
+const RESULTS_START_Y: i32 = 72;
 const MAX_RESULTS: usize = 6;
+const INPUT_HEIGHT: i32 = 52;
+const PADDING: i32 = 16;
 
 struct SearchState {
     input: String,
     results: Vec<String>,
     selected: usize,
     focused: bool,
+    icon_cache: HashMap<String, HICON>,
 }
 
 pub fn show_quick_search(parent: HWND) -> Result<()> {
@@ -64,6 +68,7 @@ pub fn show_quick_search(parent: HWND) -> Result<()> {
         results: Vec::new(),
         selected: 0,
         focused: true,
+        icon_cache: HashMap::new(),
     });
     unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(state) as isize); }
 
@@ -102,12 +107,57 @@ fn get_filename(path: &str) -> &str {
         .unwrap_or(path)
 }
 
-/// Get parent directory path
-fn get_parent_path(path: &str) -> &str {
-    Path::new(path)
+/// Get parent directory path (shortened for display)
+fn get_parent_path(path: &str) -> String {
+    let parent = Path::new(path)
         .parent()
         .and_then(|p| p.to_str())
-        .unwrap_or("")
+        .unwrap_or("");
+    
+    // Shorten the path if it's too long
+    if parent.len() > 50 {
+        let parts: Vec<&str> = parent.split('\\').collect();
+        if parts.len() > 3 {
+            format!("{}\\...\\{}", parts[0], parts[parts.len()-1])
+        } else {
+            parent.to_string()
+        }
+    } else {
+        parent.to_string()
+    }
+}
+
+/// Get the system icon for a file
+unsafe fn get_file_icon(path: &str, cache: &mut HashMap<String, HICON>) -> Option<HICON> {
+    // Check cache first
+    if let Some(&icon) = cache.get(path) {
+        return Some(icon);
+    }
+    
+    let wide_path: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut shfi = SHFILEINFOW::default();
+    
+    let result = SHGetFileInfoW(
+        PCWSTR(wide_path.as_ptr()),
+        windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES(0),
+        Some(&mut shfi),
+        std::mem::size_of::<SHFILEINFOW>() as u32,
+        SHGFI_ICON | SHGFI_SMALLICON,
+    );
+    
+    if result != 0 && !shfi.hIcon.is_invalid() {
+        cache.insert(path.to_string(), shfi.hIcon);
+        Some(shfi.hIcon)
+    } else {
+        None
+    }
+}
+
+/// Draw a rounded rectangle
+unsafe fn draw_rounded_rect(hdc: HDC, rect: &RECT, radius: i32, brush: HBRUSH) {
+    let rgn = CreateRoundRectRgn(rect.left, rect.top, rect.right, rect.bottom, radius, radius);
+    let _ = FillRgn(hdc, rgn, brush);
+    let _ = DeleteObject(rgn);
 }
 
 unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -120,15 +170,40 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 if let Some(gs) = get_window_state() {
                     let theme: crate::theme::Theme = gs.read().theme_manager.theme().clone();
 
-                    // Dark solid background (dark grey)
-                    let bg = CreateSolidBrush(Color::rgb(28, 28, 30).colorref());
+                    // Main background - dark glass effect
+                    let bg = CreateSolidBrush(Color::rgb(22, 22, 24).colorref());
                     FillRect(hdc, &ps.rcPaint, bg);
                     let _ = DeleteObject(bg);
 
-                    // No rectangular backdrop for the input — keep text background transparent over the solid fill
                     SetBkMode(hdc, TRANSPARENT);
 
-                    // Create slightly smaller font for search input for a simpler, more stable render
+                    // ===== SEARCH INPUT AREA =====
+                    // Input background (slightly lighter)
+                    let input_bg = CreateSolidBrush(Color::rgb(38, 38, 42).colorref());
+                    let input_rect = RECT {
+                        left: PADDING,
+                        top: PADDING,
+                        right: WIN_WIDTH - PADDING,
+                        bottom: PADDING + INPUT_HEIGHT,
+                    };
+                    draw_rounded_rect(hdc, &input_rect, 10, input_bg);
+                    let _ = DeleteObject(input_bg);
+
+                    // Search icon (magnifying glass)
+                    let icon_font = CreateFontW(
+                        20, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
+                        DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
+                        PCWSTR(to_wide("Segoe UI Symbol").as_ptr())
+                    );
+                    let old_font = SelectObject(hdc, icon_font);
+                    SetTextColor(hdc, Color::rgb(120, 120, 125).colorref());
+                    let search_icon = "🔍";
+                    let icon_wide: Vec<u16> = search_icon.encode_utf16().chain(std::iter::once(0)).collect();
+                    let _ = TextOutW(hdc, PADDING + 14, PADDING + 14, &icon_wide[..icon_wide.len() - 1]);
+                    let _ = SelectObject(hdc, old_font);
+                    let _ = DeleteObject(icon_font);
+
+                    // Input text
                     let input_font = CreateFontW(
                         18, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
                         DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
@@ -136,15 +211,11 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     );
                     let old_font = SelectObject(hdc, input_font);
 
-                    // Simplified input: no decorative glyph to reduce rendering complexity and glitches. Left padding preserved.
-                    // (Previously a large glyph was drawn here; removed for simplicity.)
-
-                    // Input text (shifted further right to account for larger icon)
-                    SetTextColor(hdc, Color::rgb(245, 245, 245).colorref());
                     let display = if state.input.is_empty() && search::is_index_ready() {
-                        "Search files...".to_string()
+                        SetTextColor(hdc, Color::rgb(100, 100, 105).colorref());
+                        "Search apps and files...".to_string()
                     } else if state.input.is_empty() {
-                        // Show scanned count with percent if we have an estimate
+                        SetTextColor(hdc, Color::rgb(100, 100, 105).colorref());
                         let scanned = search::scanned_count();
                         let est = search::estimated_total();
                         if est > 0 {
@@ -154,20 +225,21 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             format!("Indexing {} files...", scanned)
                         }
                     } else {
+                        SetTextColor(hdc, Color::rgb(245, 245, 245).colorref());
                         state.input.clone()
                     };
                     let wide: Vec<u16> = display.encode_utf16().chain(std::iter::once(0)).collect();
-                    // Draw input text starting closer to the left edge for a simpler layout
-                    let _ = TextOutW(hdc, 32, 20, &wide[..wide.len() - 1]);
+                    let text_x = PADDING + 48;
+                    let _ = TextOutW(hdc, text_x, PADDING + 16, &wide[..wide.len() - 1]);
 
-                    // Draw cursor at end of visible input text using measured width to avoid mispositioning
+                    // Cursor
                     if state.focused && !state.input.is_empty() {
                         let mut size = windows::Win32::Foundation::SIZE { cx: 0, cy: 0 };
                         let _ = GetTextExtentPoint32W(hdc, &wide[..wide.len() - 1], &mut size);
-                        let cursor_x = 32 + size.cx; // match input left offset
-                        let cursor_brush = CreateSolidBrush(Color::rgb(245, 245, 245).colorref());
-                        let cursor_rect = windows::Win32::Foundation::RECT {
-                            left: cursor_x, top: 20, right: cursor_x + 2, bottom: 42
+                        let cursor_x = text_x + size.cx + 2;
+                        let cursor_brush = CreateSolidBrush(theme.accent.colorref());
+                        let cursor_rect = RECT {
+                            left: cursor_x, top: PADDING + 14, right: cursor_x + 2, bottom: PADDING + 38
                         };
                         FillRect(hdc, &cursor_rect, cursor_brush);
                         let _ = DeleteObject(cursor_brush);
@@ -176,54 +248,134 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     let _ = SelectObject(hdc, old_font);
                     let _ = DeleteObject(input_font);
 
-                    // Results area (minimal rendering: filename only)
+                    // ===== SEPARATOR LINE =====
+                    let sep_brush = CreateSolidBrush(Color::rgb(50, 50, 55).colorref());
+                    let sep_rect = RECT {
+                        left: PADDING,
+                        top: PADDING + INPUT_HEIGHT + 8,
+                        right: WIN_WIDTH - PADDING,
+                        bottom: PADDING + INPUT_HEIGHT + 9,
+                    };
+                    FillRect(hdc, &sep_rect, sep_brush);
+                    let _ = DeleteObject(sep_brush);
+
+                    // ===== RESULTS AREA =====
                     let mut y = RESULTS_START_Y;
 
+                    // Fonts for results
                     let name_font = CreateFontW(
-                        16, 0, 0, 0, FW_MEDIUM.0 as i32, 0, 0, 0,
+                        16, 0, 0, 0, FW_SEMIBOLD.0 as i32, 0, 0, 0,
+                        DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
+                        PCWSTR(to_wide("Segoe UI").as_ptr())
+                    );
+                    let path_font = CreateFontW(
+                        12, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
                         DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
                         PCWSTR(to_wide("Segoe UI").as_ptr())
                     );
 
                     if state.results.is_empty() {
                         let _ = SelectObject(hdc, name_font);
-                        // Simple hint
                         if search::is_index_ready() && state.input.is_empty() {
-                            SetTextColor(hdc, Color::rgb(140, 140, 140).colorref());
-                            let msg = "Start typing to search".to_string();
+                            // Empty state with hint
+                            SetTextColor(hdc, Color::rgb(100, 100, 105).colorref());
+                            let msg = "Type to search for apps, files, and more";
                             let wide: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = TextOutW(hdc, 24, y + 8, &wide[..wide.len() - 1]);
+                            let _ = TextOutW(hdc, PADDING + 8, y + 16, &wide[..wide.len() - 1]);
+                            
+                            // Keyboard shortcut hint
+                            let _ = SelectObject(hdc, path_font);
+                            SetTextColor(hdc, Color::rgb(80, 80, 85).colorref());
+                            let hint = "Press Enter to open • Esc to close";
+                            let hint_wide: Vec<u16> = hint.encode_utf16().chain(std::iter::once(0)).collect();
+                            let _ = TextOutW(hdc, PADDING + 8, y + 40, &hint_wide[..hint_wide.len() - 1]);
+                        } else if !state.input.is_empty() {
+                            // No results found
+                            SetTextColor(hdc, Color::rgb(120, 120, 125).colorref());
+                            let msg = format!("No results for \"{}\"", state.input);
+                            let wide: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
+                            let _ = TextOutW(hdc, PADDING + 8, y + 16, &wide[..wide.len() - 1]);
                         }
                     } else {
                         for (i, path) in state.results.iter().enumerate().take(MAX_RESULTS) {
                             let is_selected = i == state.selected;
+                            let row_rect = RECT {
+                                left: PADDING - 4,
+                                top: y,
+                                right: WIN_WIDTH - PADDING + 4,
+                                bottom: y + ROW_HEIGHT - 4,
+                            };
 
-                            // Selection background
+                            // Selection background with rounded corners
                             if is_selected {
                                 let sel = CreateSolidBrush(theme.accent.colorref());
-                                let rect = windows::Win32::Foundation::RECT {
-                                    left: 8, top: y, right: WIN_WIDTH - 8, bottom: y + ROW_HEIGHT
-                                };
-                                FillRect(hdc, &rect, sel);
+                                draw_rounded_rect(hdc, &row_rect, 8, sel);
                                 let _ = DeleteObject(sel);
+                            } else {
+                                // Subtle hover hint on alternate rows
+                                if i % 2 == 1 {
+                                    let alt_bg = CreateSolidBrush(Color::rgb(26, 26, 28).colorref());
+                                    draw_rounded_rect(hdc, &row_rect, 8, alt_bg);
+                                    let _ = DeleteObject(alt_bg);
+                                }
                             }
 
-                            // Filename (single-line)
+                            // File icon - get actual system icon
+                            if let Some(state_mut) = get_state_mut(hwnd) {
+                                if let Some(icon) = get_file_icon(path, &mut state_mut.icon_cache) {
+                                    let _ = DrawIconEx(
+                                        hdc,
+                                        PADDING + 8,
+                                        y + 12,
+                                        icon,
+                                        24,  // width
+                                        24,  // height
+                                        0,
+                                        None,
+                                        DI_NORMAL,
+                                    );
+                                }
+                            }
+
+                            // Filename (bold)
                             let _ = SelectObject(hdc, name_font);
                             SetTextColor(hdc, if is_selected {
                                 Color::rgb(255, 255, 255).colorref()
                             } else {
-                                Color::rgb(230, 230, 230).colorref()
+                                Color::rgb(240, 240, 242).colorref()
                             });
                             let filename = get_filename(path);
                             let name_wide: Vec<u16> = filename.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = TextOutW(hdc, 24, y + 8, &name_wide[..name_wide.len() - 1]);
+                            let _ = TextOutW(hdc, PADDING + 48, y + 10, &name_wide[..name_wide.len() - 1]);
+
+                            // Path (smaller, muted)
+                            let _ = SelectObject(hdc, path_font);
+                            SetTextColor(hdc, if is_selected {
+                                Color::rgb(220, 220, 225).colorref()
+                            } else {
+                                Color::rgb(110, 110, 115).colorref()
+                            });
+                            let parent = get_parent_path(path);
+                            let path_wide: Vec<u16> = parent.encode_utf16().chain(std::iter::once(0)).collect();
+                            let _ = TextOutW(hdc, PADDING + 48, y + 30, &path_wide[..path_wide.len() - 1]);
 
                             y += ROW_HEIGHT;
                         }
+
+                        // Result count indicator
+                        let _ = SelectObject(hdc, path_font);
+                        SetTextColor(hdc, Color::rgb(80, 80, 85).colorref());
+                        let count_str = if state.results.len() > MAX_RESULTS {
+                            format!("Showing {} of {} results", MAX_RESULTS, state.results.len())
+                        } else {
+                            format!("{} result{}", state.results.len(), if state.results.len() == 1 { "" } else { "s" })
+                        };
+                        let count_wide: Vec<u16> = count_str.encode_utf16().chain(std::iter::once(0)).collect();
+                        let _ = TextOutW(hdc, PADDING + 8, WIN_HEIGHT - 28, &count_wide[..count_wide.len() - 1]);
                     }
 
                     let _ = DeleteObject(name_font);
+                    let _ = DeleteObject(path_font);
                 }
             }
 
@@ -374,8 +526,8 @@ fn invalidate_result_row(hwnd: HWND, idx: usize) {
     unsafe {
         if idx >= MAX_RESULTS { return; }
         let top = RESULTS_START_Y + (idx as i32) * ROW_HEIGHT;
-        let rect = windows::Win32::Foundation::RECT {
-            left: 8, top, right: WIN_WIDTH - 8, bottom: top + ROW_HEIGHT
+        let rect = RECT {
+            left: PADDING - 4, top, right: WIN_WIDTH - PADDING + 4, bottom: top + ROW_HEIGHT
         };
         let _ = InvalidateRect(hwnd, Some(&rect), false);
     }
@@ -399,7 +551,11 @@ fn free_state(hwnd: HWND) {
     unsafe {
         let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut SearchState;
         if !ptr.is_null() {
-            let _ = Box::from_raw(ptr);
+            let state = Box::from_raw(ptr);
+            // Clean up cached icons
+            for (_, icon) in state.icon_cache.iter() {
+                let _ = DestroyIcon(*icon);
+            }
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
         }
     }

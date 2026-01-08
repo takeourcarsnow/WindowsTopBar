@@ -60,6 +60,9 @@ impl WindowManager {
         // Create the window
         let hwnd = Self::create_window(&class_name, &config)?;
 
+        // Store main HWND for cross-thread access (needed for night light toggle, etc.)
+        super::state::set_main_hwnd(hwnd);
+
         // Get DPI
         let dpi = unsafe { GetDpiForWindow(hwnd) };
         {

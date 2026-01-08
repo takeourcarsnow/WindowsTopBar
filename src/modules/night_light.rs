@@ -129,13 +129,16 @@ impl NightLightModule {
             log::info!("NightLight: background toggle completed -> {}", ok);
 
             // Notify main window to refresh and redraw (asynchronous)
-            unsafe {
-                let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
-                    windows::Win32::UI::WindowsAndMessaging::HWND_BROADCAST,
-                    crate::window::WM_TOPBAR_NIGHTLIGHT_TOGGLED,
-                    windows::Win32::Foundation::WPARAM(if ok { 1 } else { 0 }),
-                    windows::Win32::Foundation::LPARAM(0),
-                );
+            // Use stored main HWND instead of HWND_BROADCAST for reliable delivery
+            if let Some(main_hwnd) = crate::window::get_main_hwnd() {
+                unsafe {
+                    let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                        main_hwnd,
+                        crate::window::WM_TOPBAR_NIGHTLIGHT_TOGGLED,
+                        windows::Win32::Foundation::WPARAM(if ok { 1 } else { 0 }),
+                        windows::Win32::Foundation::LPARAM(0),
+                    );
+                }
             }
         });
 
