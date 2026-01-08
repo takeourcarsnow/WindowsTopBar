@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use super::Module;
 use crate::config::TemperatureUnit;
+use chrono::{Local, NaiveDate};
 
 /// Weather condition codes from wttr.in (WWO codes)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -530,6 +531,26 @@ impl WeatherModule {
         }
     }
 
+    /// Public helper: Format forecast date into relative terms (Today/Tomorrow/Weekday)
+    pub fn relative_date_label(date_str: &str) -> String {
+        // Expect date in YYYY-MM-DD format from wttr.in
+        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+            let today = Local::now().date_naive();
+            let days = (date - today).num_days();
+            match days {
+                0 => "Today".to_string(),
+                1 => "Tomorrow".to_string(),
+                -1 => "Yesterday".to_string(),
+                2..=6 => date.format("%A").to_string(),
+                _ => date.format("%Y-%m-%d").to_string(),
+            }
+        } else {
+            date_str.to_string()
+        }
+    }
+
+    // Instance helper removed; use the associated function `WeatherModule::relative_date_label(...)` instead.
+
     /// Get weather data
     pub fn weather_data(&self) -> Option<WeatherData> {
         self.weather_data.lock().unwrap().clone()
@@ -581,10 +602,10 @@ impl Module for WeatherModule {
                 let max = self.convert_temp(fc.max);
                 let min = self.convert_temp(fc.min);
                 let icon = fc.condition.icon();
-                let line = format!("{} {} {:.0}° / {:.0}° - {}\n", fc.date, icon, max, min, fc.description);
+                let label = WeatherModule::relative_date_label(&fc.date);
+                let line = format!("{} {} {:.0}° / {:.0}° - {}\n", label, icon, max, min, fc.description);
                 msg.push_str(&line);
             }
-
             msg.push_str("\nOpen full forecast in browser?");
 
             // Show MessageBox with Yes/No

@@ -17,6 +17,7 @@ use windows::Win32::System::Registry::{
 pub enum ThemeMode {
     Light,
     Dark,
+    Transparent,
     #[default]
     Auto,
 }
@@ -289,6 +290,63 @@ impl Theme {
         }
     }
 
+    /// Create the transparent theme
+    pub fn transparent() -> Self {
+        Self {
+            name: "Transparent".to_string(),
+            is_dark: true,
+
+            // Fully transparent background
+            background: Color::new(0, 0, 0, 0),
+            background_secondary: Color::new(0, 0, 0, 0),
+            background_hover: Color::new(255, 255, 255, 12),
+            background_active: Color::new(255, 255, 255, 22),
+
+            // Bright text for visibility on any background
+            text_primary: Color::rgb(255, 255, 255),
+            text_secondary: Color::rgb(200, 200, 200),
+            text_disabled: Color::rgb(100, 100, 105),
+            text_accent: Color::rgb(10, 132, 255),
+
+            // iOS/macOS accent colors
+            accent: Color::rgb(10, 132, 255),
+            accent_hover: Color::rgb(50, 152, 255),
+            accent_active: Color::rgb(80, 165, 255),
+
+            border: Color::new(255, 255, 255, 10),
+            border_hover: Color::new(255, 255, 255, 25),
+
+            // Status colors
+            success: Color::rgb(48, 209, 88),
+            warning: Color::rgb(255, 159, 10),
+            error: Color::rgb(255, 79, 68),
+            info: Color::rgb(10, 132, 255),
+
+            shadow: Color::new(0, 0, 0, 0),
+            overlay: Color::new(0, 0, 0, 50),
+
+            // Battery colors
+            battery_full: Color::rgb(48, 209, 88),
+            battery_medium: Color::rgb(255, 214, 10),
+            battery_low: Color::rgb(255, 159, 10),
+            battery_critical: Color::rgb(255, 79, 68),
+            battery_charging: Color::rgb(48, 209, 88),
+
+            // Network status
+            network_connected: Color::rgb(48, 209, 88),
+            network_disconnected: Color::rgb(130, 130, 135),
+
+            // System metrics
+            cpu_normal: Color::rgb(10, 132, 255),
+            cpu_high: Color::rgb(255, 159, 10),
+            cpu_critical: Color::rgb(255, 79, 68),
+
+            memory_normal: Color::rgb(191, 90, 242),
+            memory_high: Color::rgb(255, 159, 10),
+            memory_critical: Color::rgb(255, 79, 68),
+        }
+    }
+
     /// Get color for CPU usage percentage
     pub fn cpu_color(&self, usage: f32) -> Color {
         if usage >= 90.0 {
@@ -341,6 +399,7 @@ impl ThemeManager {
         let current_theme = match mode {
             ThemeMode::Light => Theme::light(),
             ThemeMode::Dark => Theme::dark(),
+            ThemeMode::Transparent => Theme::transparent(),
             ThemeMode::Auto => {
                 if system_is_dark {
                     Theme::dark()
@@ -373,14 +432,15 @@ impl ThemeManager {
         self.update_theme();
     }
 
-    /// Toggle between light and dark mode
+    /// Cycle through light, dark, and transparent themes
     pub fn toggle(&mut self) {
         self.mode = match self.mode {
             ThemeMode::Light => ThemeMode::Dark,
-            ThemeMode::Dark => ThemeMode::Light,
+            ThemeMode::Dark => ThemeMode::Transparent,
+            ThemeMode::Transparent => ThemeMode::Light,
             ThemeMode::Auto => {
                 if self.system_is_dark.load(Ordering::Relaxed) {
-                    ThemeMode::Light
+                    ThemeMode::Dark
                 } else {
                     ThemeMode::Dark
                 }
@@ -406,6 +466,7 @@ impl ThemeManager {
         self.current_theme = match self.mode {
             ThemeMode::Light => Theme::light(),
             ThemeMode::Dark => Theme::dark(),
+            ThemeMode::Transparent => Theme::transparent(),
             ThemeMode::Auto => {
                 if self.system_is_dark.load(Ordering::Relaxed) {
                     Theme::dark()

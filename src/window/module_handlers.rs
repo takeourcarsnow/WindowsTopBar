@@ -317,7 +317,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
                                 let icon = fc.condition.icon();
                                 let label = format!(
                                     "{} {} {:.0}°C / {:.0}°C - {}",
-                                    fc.date, icon, max, min, fc.description
+                                    crate::modules::weather::WeatherModule::relative_date_label(&fc.date), icon, max, min, fc.description
                                 );
                                 lines.push(label);
                             }
