@@ -32,6 +32,15 @@ A native Windows 11 topbar application inspired by macOS and [Droptop Four](http
 
 ## Installation
 
+### MSI Installer (Recommended)
+
+Download the latest `topbar-x.x.x-x86_64.msi` from the [Releases](https://github.com/yourusername/topbar/releases) page and run it. The installer will:
+
+- Install TopBar to `Program Files\topbar`
+- Add TopBar to your PATH
+- Create a Start Menu shortcut
+- Include the license and uninstaller
+
 ### From Source
 
 1. Install [Rust](https://rustup.rs/) (1.70+)
