@@ -4,8 +4,6 @@
 //! prefix-searchable set.
 
 use anyhow::Result;
-use fst::{Automaton, IntoStreamer, Set, Streamer};
-use fst::automaton::Str;
 use walkdir::WalkDir;
 use std::path::PathBuf;
 use once_cell::sync::OnceCell;
@@ -55,13 +53,11 @@ fn meta_path() -> PathBuf {
 use std::collections::HashMap;
 
 pub struct SearchIndex {
-    set: Set<Vec<u8>>,
-    count: usize,
-    /// Map of lowercase extension -> list of full paths
-    ext_map: HashMap<String, Vec<String>>,
-    /// Map of paths that are from app/program directories (Start Menu, Program Files, etc.)
+    /// Minimal entries: (lowercase filename, lowercase full path, full path)
+    entries: Vec<(String, String, String)>,
+    /// Map-like set of paths that are from app/program directories (Start Menu, Program Files, etc.)
     app_paths: std::collections::HashSet<String>,
-}
+}  
 
 impl SearchIndex {
     /// Build an index from the provided roots (walks recursively).
@@ -71,16 +67,10 @@ impl SearchIndex {
 
     /// Build an index with exclusion patterns
     pub fn build_with_excludes(roots: &[PathBuf], exclude_patterns: &[String]) -> Result<Self> {
-        let mut keys: Vec<String> = Vec::new();
-
-        // Try load a previous estimate (best-effort) so we can show % progress
-        let estimate = if let Ok(s) = std::fs::read_to_string(meta_path()) {
-            s.trim().parse::<usize>().unwrap_or(0)
-        } else { 0 };
-        ESTIMATED_TOTAL.store(estimate, Ordering::Relaxed);
-        log::info!("Starting search index build (est={} files)...", estimate);
-        SCANNED_COUNT.store(0, Ordering::Relaxed);
-        IS_BUILDING.store(false, Ordering::Relaxed);
+        // Minimal, fast index: only include common application files and shortcuts
+        const MAX_ENTRIES: usize = 10000;
+        const MAX_DEPTH: usize = 6;
+        let allowed_exts = ["exe", "lnk", "bat", "msi", "com"];
 
         // Compile glob patterns for exclusion
         let exclude_globs: Vec<glob::Pattern> = exclude_patterns
@@ -88,33 +78,20 @@ impl SearchIndex {
             .filter_map(|pattern| glob::Pattern::new(pattern).ok())
             .collect();
 
-        // Prepare extension map while scanning
-        let mut ext_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut entries: Vec<(String, String, String)> = Vec::new();
         let mut app_paths = std::collections::HashSet::new();
 
-        // Identify common app directories by pattern
         let is_app_directory = |path: &str| -> bool {
             let lower = path.to_lowercase();
-            // Program Files directories
-            lower.contains("\\program files\\") || 
-            lower.contains("\\program files (x86)\\") ||
-            // Start Menu locations
-            lower.contains("\\start menu\\") ||
-            lower.contains("\\microsoft\\windows\\start menu\\") ||
-            // AppData program installations
-            lower.contains("\\appdata\\local\\programs\\") ||
-            lower.contains("\\appdata\\roaming\\") && lower.contains("\\.exe") ||
-            // Common installation directories
-            lower.contains("\\common files\\") ||
-            lower.contains("\\commonprogramfiles\\") ||
-            // Portable apps and other app locations
-            (lower.contains("\\app\\") && lower.ends_with(".exe")) ||
-            (lower.contains("\\application\\") && lower.ends_with(".exe"))
+            lower.contains("\\program files\\") || lower.contains("\\program files (x86)\\") || lower.contains("\\start menu\\")
         };
 
+        SCANNED_COUNT.store(0, Ordering::Relaxed);
+        IS_BUILDING.store(true, Ordering::Relaxed);
+
         for root in roots {
-            log::info!("Indexing directory: {}", root.display());
-            let walker = WalkDir::new(root).follow_links(false).into_iter();
+            log::info!("Indexing directory (shallow): {}", root.display());
+            let walker = WalkDir::new(root).follow_links(false).max_depth(MAX_DEPTH).into_iter();
 
             for entry in walker.filter_map(|e| e.ok()) {
                 let path_str = entry.path().to_string_lossy();
@@ -126,96 +103,131 @@ impl SearchIndex {
 
                 if entry.file_type().is_file() {
                     SCANNED_COUNT.fetch_add(1, Ordering::Relaxed);
-                    let filename = entry.file_name().to_string_lossy().to_lowercase();
+
                     let full = entry.path().to_string_lossy().to_string();
-                    // record key for fst
-                    keys.push(format!("{}\0{}", filename, full));
-
-                    // Check if this path is in an app-related directory
-                    if is_app_directory(&full) {
-                        app_paths.insert(full.clone());
-                    }
-
-                    // record extension -> full path
+                    let filename = entry.file_name().to_string_lossy().to_lowercase();
                     if let Some(ext_os) = entry.path().extension() {
                         if let Some(ext) = ext_os.to_str() {
                             let e = ext.to_lowercase();
-                            ext_map.entry(e).or_insert_with(Vec::new).push(full.clone());
+                            if allowed_exts.contains(&e.as_str()) {
+                                let full_lower = full.to_lowercase();
+                                entries.push((filename.clone(), full_lower, full.clone()));
+                                if is_app_directory(&full) {
+                                    app_paths.insert(full.clone());
+                                }
+                                if entries.len() >= MAX_ENTRIES {
+                                    log::info!("Reached max entries ({}), stopping early", MAX_ENTRIES);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            if entries.len() >= MAX_ENTRIES { break; }
         }
 
-        log::info!("Collected {} files, sorting...", keys.len());
-        // Update estimated total to the actual scanned count before building
-        ESTIMATED_TOTAL.store(keys.len(), Ordering::Relaxed);
-        IS_BUILDING.store(true, Ordering::Relaxed);
-        keys.sort();
-
-        log::info!("Building FST index...");
-        let set = Set::from_iter(keys.iter())?;
-        let count = set.len();
-
-        // Persist final count for future estimates (best-effort)
-        let _ = std::fs::create_dir_all(meta_path().parent().unwrap_or(&PathBuf::from(".")));
-        let _ = std::fs::write(meta_path(), format!("{}", count));
-
         IS_BUILDING.store(false, Ordering::Relaxed);
-        log::info!("Search index ready with {} files", count);
+        log::info!("Minimal search index built with {} entries", entries.len());
 
-        Ok(Self { set, count, ext_map, app_paths })
+        Ok(Self { entries, app_paths })
     }
 
     /// Return the number of indexed entries
     pub fn count(&self) -> usize {
-        self.count
+        self.entries.len()
     }
 
     /// Search for filenames that start with `prefix` (case-insensitive) with smart ranking
     pub fn search_prefix(&self, prefix: &str, limit: usize) -> Vec<String> {
         let q = prefix.to_lowercase();
-        let matcher = Str::new(&q).starts_with();
-        let mut stream = self.set.search(&matcher).into_stream();
+        let mut best: Vec<(f32, String)> = Vec::new();
 
-        let mut all_results = Vec::new();
-        while let Some(key) = stream.next() {
-            if let Ok(s) = std::str::from_utf8(key) {
-                if let Some(pos) = s.find('\0') {
-                    let filename = &s[..pos];
-                    let full_path = &s[pos + 1..];
-                    all_results.push((filename.to_string(), full_path.to_string()));
+        for (filename, _path_lower, full) in &self.entries {
+            if filename.starts_with(&q) {
+                let score = calculate_relevance_score(filename, full, &q, &self.app_paths);
+                if best.len() < limit {
+                    best.push((score, full.clone()));
+                } else {
+                    // replace min if better
+                    let mut min_idx = 0usize;
+                    let mut min_score = best[0].0;
+                    for i in 1..best.len() {
+                        if best[i].0 < min_score {
+                            min_score = best[i].0;
+                            min_idx = i;
+                        }
+                    }
+                    if score > min_score {
+                        best[min_idx] = (score, full.clone());
+                    }
                 }
             }
         }
 
-        // Score and sort results by relevance
-        let mut scored = all_results
-            .into_iter()
-            .map(|(filename, path)| {
-                let score = calculate_relevance_score(&filename, &path, &q, &self.app_paths);
-                (path, score)
-            })
-            .collect::<Vec<_>>();
-
-        // Sort by score descending, then by path for stable ordering
-        scored.sort_by(|a, b| {
-            match b.1.partial_cmp(&a.1) {
-                Some(std::cmp::Ordering::Equal) | None => a.0.cmp(&b.0),
-                Some(ord) => ord,
-            }
+        best.sort_by(|a, b| match b.0.partial_cmp(&a.0) {
+            Some(ord) => ord,
+            None => std::cmp::Ordering::Equal,
         });
 
-        scored.into_iter().take(limit).map(|(path, _)| path).collect()
+        best.into_iter().map(|(_, path)| path).collect()
+    }
+
+    /// Simple contains-based search (case-insensitive) that matches query anywhere in filename or path
+    pub fn search_query(&self, query: &str, limit: usize) -> Vec<String> {
+        let q = query.to_lowercase();
+
+        // Maintain a small bounded collection of best candidates to avoid allocating and sorting huge result sets
+        let mut best: Vec<(f32, String)> = Vec::new();
+
+        for (filename, path_lower, full) in &self.entries {
+            if filename.contains(&q) || filename.split('.').next().unwrap_or("").contains(&q) || path_lower.contains(&q) {
+                let score = calculate_relevance_score(filename, full, &q, &self.app_paths);
+
+                if best.len() < limit {
+                    best.push((score, full.clone()));
+                } else {
+                    // find smallest score in current best and replace if this is better
+                    let mut min_idx = 0usize;
+                    let mut min_score = best[0].0;
+                    for i in 1..best.len() {
+                        if best[i].0 < min_score {
+                            min_score = best[i].0;
+                            min_idx = i;
+                        }
+                    }
+                    if score > min_score {
+                        best[min_idx] = (score, full.clone());
+                    }
+                }
+            }
+        }
+
+        // Final sort of small set by score descending, then path
+        best.sort_by(|a, b| match b.0.partial_cmp(&a.0) {
+            Some(ord) => ord,
+            None => std::cmp::Ordering::Equal,
+        });
+
+        best.into_iter().map(|(_, path)| path).collect()
     }
 
     /// Search by extension (.ext or ext). Case-insensitive. Up to `limit` results
     pub fn search_by_extension(&self, ext: &str, limit: usize) -> Vec<String> {
         let e = ext.trim_start_matches('.').to_lowercase();
-        if let Some(v) = self.ext_map.get(&e) {
-            return v.iter().take(limit).cloned().collect();
+        let mut res: Vec<String> = Vec::new();
+        for (_filename, _path_lower, full) in &self.entries {
+            if let Some(ext_os) = std::path::Path::new(full).extension() {
+                if let Some(exts) = ext_os.to_str() {
+                    if exts.to_lowercase() == e {
+                        res.push(full.clone());
+                        if res.len() >= limit { break; }
+                    }
+                }
+            }
         }
-        Vec::new()
+        res
     }
 }
 
@@ -271,21 +283,25 @@ mod tests {
     #[test]
     fn build_and_search() {
         let dir = tempdir().unwrap();
-        File::create(dir.path().join("Hello.txt")).unwrap();
-        File::create(dir.path().join("hello_world.md")).unwrap();
-        File::create(dir.path().join("Other.dat")).unwrap();
+        File::create(dir.path().join("Hello.exe")).unwrap();
+        File::create(dir.path().join("hello_world.exe")).unwrap();
+        File::create(dir.path().join("Other.exe")).unwrap();
 
         let idx = SearchIndex::build(&[dir.path().to_path_buf()]).unwrap();
         assert!(idx.count() >= 3);
 
         let results = idx.search_prefix("hel", 10);
-        assert!(results.iter().any(|p| p.ends_with("Hello.txt")));
-        assert!(results.iter().any(|p| p.ends_with("hello_world.md")));
+        assert!(results.iter().any(|p| p.ends_with("Hello.exe")));
+        assert!(results.iter().any(|p| p.ends_with("hello_world.exe")));
+
+        // contains-based search should find substrings inside filenames
+        let results_contains = idx.search_query("llo", 10);
+        assert!(results_contains.iter().any(|p| p.ends_with("Hello.exe")));
 
         // Test extension search
-        File::create(dir.path().join("image.CR2")).unwrap();
+        File::create(dir.path().join("image.EXE")).unwrap();
         let idx2 = SearchIndex::build(&[dir.path().to_path_buf()]).unwrap();
-        let ext_results = idx2.search_by_extension(".cr2", 10);
-        assert!(ext_results.iter().any(|p| p.ends_with("image.CR2")));
+        let ext_results = idx2.search_by_extension(".exe", 10);
+        assert!(ext_results.iter().any(|p| p.ends_with("image.EXE")));
     }
 }

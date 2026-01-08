@@ -693,12 +693,7 @@ impl Default for SearchConfig {
     fn default() -> Self {
         let mut default_paths = Vec::new();
         
-        // Add home directory
-        if let Some(h) = dirs::home_dir() { 
-            default_paths.push(h); 
-        }
-        
-        // Add Program Files directories
+        // Add Program Files directories (minimal by default - avoid scanning entire home dir)
         if let Ok(pf) = std::env::var("ProgramFiles") {
             default_paths.push(PathBuf::from(pf));
         }

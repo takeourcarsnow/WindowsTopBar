@@ -4,24 +4,21 @@ use anyhow::Result;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::*;
-use windows::Win32::UI::Shell::{ShellExecuteW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_SMALLICON};
+use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::Graphics::Gdi::*;
-use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
 
 use crate::window::state::get_window_state;
 use crate::theme::Color;
-use crate::search;
-use crate::effects::EffectsManager;
-use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn, DeleteObject};
+use crate::search; 
 use std::path::Path;
 
 const SEARCH_CLASS: &str = "TopBarQuickSearchClass";
 const WIN_WIDTH: i32 = 680;
-const WIN_HEIGHT: i32 = 420;
-const ROW_HEIGHT: i32 = 44;
-const RESULTS_START_Y: i32 = 60;
-const MAX_RESULTS: usize = 8;
+const WIN_HEIGHT: i32 = 320;
+const ROW_HEIGHT: i32 = 36;
+const RESULTS_START_Y: i32 = 56;
+const MAX_RESULTS: usize = 6;
 
 struct SearchState {
     input: String,
@@ -179,37 +176,23 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     let _ = SelectObject(hdc, old_font);
                     let _ = DeleteObject(input_font);
 
-                    // Results area
+                    // Results area (minimal rendering: filename only)
                     let mut y = RESULTS_START_Y;
-                    
-                    // Create fonts for results
+
                     let name_font = CreateFontW(
                         16, 0, 0, 0, FW_MEDIUM.0 as i32, 0, 0, 0,
                         DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
                         PCWSTR(to_wide("Segoe UI").as_ptr())
                     );
-                    let path_font = CreateFontW(
-                        13, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
-                        DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
-                        PCWSTR(to_wide("Segoe UI").as_ptr())
-                    );
 
                     if state.results.is_empty() {
-                        let _ = SelectObject(hdc, path_font);
-                        // Avoid duplicating the indexing message (already shown in the input area).
-                        // Only show hints when the index is ready or there are no files found.
-                        let msg = if !search::is_index_ready() {
-                            String::new()
-                        } else if state.input.is_empty() {
-                            "Start typing to search".to_string()
-                        } else {
-                            "No files found".to_string()
-                        };
-
-                        if !msg.is_empty() {
+                        let _ = SelectObject(hdc, name_font);
+                        // Simple hint
+                        if search::is_index_ready() && state.input.is_empty() {
                             SetTextColor(hdc, Color::rgb(140, 140, 140).colorref());
+                            let msg = "Start typing to search".to_string();
                             let wide: Vec<u16> = msg.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = TextOutW(hdc, 24, y + 10, &wide[..wide.len() - 1]);
+                            let _ = TextOutW(hdc, 24, y + 8, &wide[..wide.len() - 1]);
                         }
                     } else {
                         for (i, path) in state.results.iter().enumerate().take(MAX_RESULTS) {
@@ -225,64 +208,22 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                                 let _ = DeleteObject(sel);
                             }
 
-                            // File icon
-                            let mut sfi = SHFILEINFOW::default();
-                            let widepath: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = SHGetFileInfoW(
-                                PCWSTR(widepath.as_ptr()),
-                                FILE_FLAGS_AND_ATTRIBUTES(0),
-                                Some(&mut sfi),
-                                std::mem::size_of::<SHFILEINFOW>() as u32,
-                                SHGFI_ICON | SHGFI_SMALLICON
-                            );
-                            if !sfi.hIcon.is_invalid() {
-                                let _ = DrawIconEx(hdc, 20, y + 6, sfi.hIcon, 32, 32, 0, HBRUSH::default(), DI_NORMAL);
-                                let _ = DestroyIcon(sfi.hIcon);
-                            }
-
-                            // Filename (bold/larger)
+                            // Filename (single-line)
                             let _ = SelectObject(hdc, name_font);
                             SetTextColor(hdc, if is_selected {
                                 Color::rgb(255, 255, 255).colorref()
                             } else {
-                                Color::rgb(240, 240, 240).colorref()
+                                Color::rgb(230, 230, 230).colorref()
                             });
                             let filename = get_filename(path);
                             let name_wide: Vec<u16> = filename.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = TextOutW(hdc, 62, y + 6, &name_wide[..name_wide.len() - 1]);
-
-                            // Path (smaller, dimmer)
-                            let _ = SelectObject(hdc, path_font);
-                            SetTextColor(hdc, if is_selected {
-                                Color::rgb(220, 220, 220).colorref()
-                            } else {
-                                Color::rgb(120, 120, 120).colorref()
-                            });
-                            let parent = get_parent_path(path);
-                            let path_wide: Vec<u16> = parent.encode_utf16().chain(std::iter::once(0)).collect();
-                            let _ = TextOutW(hdc, 62, y + 24, &path_wide[..path_wide.len() - 1]);
+                            let _ = TextOutW(hdc, 24, y + 8, &name_wide[..name_wide.len() - 1]);
 
                             y += ROW_HEIGHT;
                         }
                     }
 
                     let _ = DeleteObject(name_font);
-                    let _ = DeleteObject(path_font);
-
-                    // Bottom hint
-                    if !state.results.is_empty() {
-                        let hint_font = CreateFontW(
-                            12, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
-                            DEFAULT_CHARSET.0 as u32, 0, 0, CLEARTYPE_QUALITY.0 as u32, 0,
-                            PCWSTR(to_wide("Segoe UI").as_ptr())
-                        );
-                        let _ = SelectObject(hdc, hint_font);
-                        SetTextColor(hdc, Color::rgb(100, 100, 100).colorref());
-                        let hint = "↑↓ Navigate  ⏎ Open  Esc Close";
-                        let hint_wide: Vec<u16> = hint.encode_utf16().chain(std::iter::once(0)).collect();
-                        let _ = TextOutW(hdc, 24, WIN_HEIGHT - 28, &hint_wide[..hint_wide.len() - 1]);
-                        let _ = DeleteObject(hint_font);
-                    }
                 }
             }
 
@@ -301,9 +242,9 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     }
                     _ => {}
                 }
-                do_search(state);
-                // Invalidate without erasing background to avoid flicker
-                let _ = InvalidateRect(hwnd, None, false);
+                // Debounce searching: set a short timer and perform the search on timer to avoid blocking on every keystroke
+                let _ = KillTimer(hwnd, 2);
+                let _ = SetTimer(hwnd, 2, 120, None);
             }
             LRESULT(0)
         }
@@ -381,9 +322,19 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
         }
 
         WM_TIMER => {
-            if !search::is_index_ready() {
+            let id = wparam.0 as u32;
+            if id == 1 {
+                if !search::is_index_ready() {
                     // Update without erasing background to avoid flicker
                     let _ = InvalidateRect(hwnd, None, false);
+                }
+            } else if id == 2 {
+                // Debounced search timer fired
+                if let Some(state) = get_state_mut(hwnd) {
+                    do_search(state);
+                    let _ = KillTimer(hwnd, 2);
+                    let _ = InvalidateRect(hwnd, None, false);
+                }
             }
             LRESULT(0)
         }
@@ -412,7 +363,8 @@ fn do_search(state: &mut SearchState) {
             if state.input.starts_with('.') {
                 state.results = idx.search_by_extension(&state.input, 200);
             } else {
-                state.results = idx.search_prefix(&state.input, 200);
+                // Use simpler contains-based search to find installed apps better
+                state.results = idx.search_query(&state.input, 200);
             }
         }
     }
