@@ -19,6 +19,7 @@ pub struct VolumeModule {
     last_update: Instant,
     com_initialized: bool,
     output_device_name: String,
+    sound_feedback: bool,
 }
 
 impl VolumeModule {
@@ -32,6 +33,7 @@ impl VolumeModule {
             last_update: Instant::now(),
             com_initialized: false,
             output_device_name: String::new(),
+            sound_feedback: true, // Default to enabled
         };
         module.init_com();
         module
@@ -190,6 +192,8 @@ impl Module for VolumeModule {
         let interval_ms = config.modules.volume.update_interval_ms.max(100); // minimum 100ms
         if self.last_update.elapsed().as_millis() >= interval_ms as u128 {
             self.force_update(config);
+            // Update sound feedback setting from config
+            self.sound_feedback = config.modules.volume.sound_feedback;
         }
     }
 
@@ -211,6 +215,10 @@ impl Module for VolumeModule {
                 -(self.scroll_step as i32)
             };
             self.change_volume(step);
+            // Play feedback sound when volume changes (if enabled)
+            if self.sound_feedback {
+                crate::utils::play_volume_feedback_sound();
+            }
         }
     }
 

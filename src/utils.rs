@@ -394,6 +394,20 @@ pub fn is_on_battery() -> bool {
     false
 }
 
+/// Play a system beep for volume feedback
+pub fn play_volume_feedback_sound() {
+    // Use FFI to call the Windows Beep function from kernel32.dll
+    extern "system" {
+        fn Beep(dw_freq: u32, dw_duration: u32) -> i32;
+    }
+
+    // Play a very subtle, short beep at 500Hz for 30ms for volume feedback
+    // This provides minimal audio feedback similar to macOS volume changes
+    unsafe {
+        Beep(500, 30);
+    }
+}
+
 /// Get battery-aware update multiplier (2x on battery, 1x on AC)
 /// Use this to slow down updates when on battery to save power.
 pub fn battery_update_multiplier() -> u64 {

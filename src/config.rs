@@ -556,6 +556,8 @@ pub struct VolumeConfig {
     pub scroll_step: u32,
     /// Update interval in milliseconds
     pub update_interval_ms: u64,
+    /// Play sound feedback on volume change
+    pub sound_feedback: bool,
 }
 
 impl Default for VolumeConfig {
@@ -565,6 +567,7 @@ impl Default for VolumeConfig {
             scroll_to_change: true,
             scroll_step: 5,
             update_interval_ms: 500, // Check volume every 500ms for responsive updates
+            sound_feedback: true, // Enable sound feedback by default
         }
     }
 }
