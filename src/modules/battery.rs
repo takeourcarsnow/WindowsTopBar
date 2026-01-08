@@ -91,6 +91,11 @@ impl BatteryModule {
         text
     }
 
+    /// Rebuild the cached display text from current internal state and config
+    pub fn rebuild_cached_text(&mut self, config: &crate::config::Config) {
+        self.cached_text = self.build_display_text(config);
+    }
+
     /// Get appropriate battery icon based on level
     fn get_battery_icon(&self) -> &'static str {
         if self.is_plugged_in && !self.is_charging {

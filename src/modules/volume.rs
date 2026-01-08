@@ -119,6 +119,11 @@ impl VolumeModule {
         }
     }
 
+    /// Rebuild the cached display text from current internal state and config
+    pub fn rebuild_cached_text(&mut self, config: &crate::config::Config) {
+        self.cached_text = self.build_display_text(config);
+    }
+
     /// Get volume icon based on level
     fn get_volume_icon(&self) -> &'static str {
         if self.is_muted || self.volume_level == 0 {

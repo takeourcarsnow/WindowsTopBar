@@ -250,11 +250,48 @@ pub fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         2004 => toggle_config_bool(hwnd, |c| &mut c.modules.clock.show_day),
 
         // Battery settings
-        2401 => toggle_config_bool(hwnd, |c| &mut c.modules.battery.show_percentage),
+        2401 => {
+            toggle_config_bool(hwnd, |c| &mut c.modules.battery.show_percentage);
+            // Force battery module to rebuild display text so percentage toggles immediately
+            if let Some(state) = get_window_state() {
+                let config = state.read().config.clone();
+                with_renderer(|renderer| {
+                    if let Some(module) = renderer.module_registry.get_mut("battery") {
+                        if let Some(b) = module
+                            .as_any_mut()
+                            .downcast_mut::<crate::modules::battery::BatteryModule>()
+                        {
+                            b.rebuild_cached_text(&config);
+                        }
+                    }
+                });
+                unsafe {
+                    let _ = InvalidateRect(hwnd, None, true);
+                }
+            }
+        },
         2402 => toggle_config_bool(hwnd, |c| &mut c.modules.battery.show_time_remaining),
 
         // Volume settings
-        2201 => toggle_config_bool(hwnd, |c| &mut c.modules.volume.show_percentage),
+        2201 => {
+            toggle_config_bool(hwnd, |c| &mut c.modules.volume.show_percentage);
+            if let Some(state) = get_window_state() {
+                let config = state.read().config.clone();
+                with_renderer(|renderer| {
+                    if let Some(module) = renderer.module_registry.get_mut("volume") {
+                        if let Some(v) = module
+                            .as_any_mut()
+                            .downcast_mut::<crate::modules::volume::VolumeModule>()
+                        {
+                            v.rebuild_cached_text(&config);
+                        }
+                    }
+                });
+                unsafe {
+                    let _ = InvalidateRect(hwnd, None, true);
+                }
+            }
+        },
         2202 => {
             with_renderer(|renderer| {
                 if let Some(module) = renderer.module_registry.get_mut("volume") {
