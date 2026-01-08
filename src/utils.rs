@@ -396,15 +396,49 @@ pub fn is_on_battery() -> bool {
 
 /// Play a system beep for volume feedback
 pub fn play_volume_feedback_sound() {
-    // Use FFI to call the Windows Beep function from kernel32.dll
-    extern "system" {
-        fn Beep(dw_freq: u32, dw_duration: u32) -> i32;
-    }
+    use std::io::BufReader;
+    use std::fs::File;
 
-    // Play a very subtle, short beep at 500Hz for 30ms for volume feedback
-    // This provides minimal audio feedback similar to macOS volume changes
-    unsafe {
-        Beep(500, 30);
+    // Try to find the volume.mp3 file relative to the executable
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let sound_path = exe_dir.join("resources").join("volume.mp3");
+            log::debug!("Looking for volume sound at: {:?}", sound_path);
+            if sound_path.exists() {
+                log::debug!("Volume sound file exists, attempting to play");
+                match File::open(&sound_path) {
+                    Ok(file) => {
+                        // Spawn a thread to handle audio playback asynchronously
+                        std::thread::spawn(move || {
+                            match rodio::OutputStream::try_default() {
+                                Ok((_stream, stream_handle)) => {
+                                    match rodio::Decoder::new(BufReader::new(file)) {
+                                        Ok(source) => {
+                                            match rodio::Sink::try_new(&stream_handle) {
+                                                Ok(sink) => {
+                                                    log::debug!("Playing volume sound");
+                                                    sink.append(source);
+                                                    sink.sleep_until_end();
+                                                    log::debug!("Volume sound finished");
+                                                }
+                                                Err(e) => log::warn!("Failed to create audio sink: {}", e),
+                                            }
+                                        }
+                                        Err(e) => log::warn!("Failed to decode MP3 file: {}", e),
+                                    }
+                                }
+                                Err(e) => log::warn!("Failed to create audio output stream: {}", e),
+                            }
+                        });
+                    }
+                    Err(e) => log::warn!("Failed to open volume sound file: {}", e),
+                }
+            } else {
+                log::warn!("Volume sound file not found at: {:?}", sound_path);
+            }
+        }
+    } else {
+        log::warn!("Failed to get current executable path");
     }
 }
 

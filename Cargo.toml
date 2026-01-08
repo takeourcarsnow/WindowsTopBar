@@ -75,6 +75,9 @@ parking_lot = "0.12"
 # HTTP client for weather
 ureq = { version = "2.9", features = ["json"] }
 
+# Audio playback for volume feedback
+rodio = "0.19"
+
 # Fast finite state transducer for prefix search and filesystem walker
 fst = "0.4"
 walkdir = "2"

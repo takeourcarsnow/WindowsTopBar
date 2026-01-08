@@ -9,6 +9,9 @@ use windows::Win32::System::Com::{
 
 use super::Module;
 
+
+
+
 /// Volume module with real Windows audio integration
 pub struct VolumeModule {
     scroll_to_change: bool,
@@ -20,6 +23,8 @@ pub struct VolumeModule {
     com_initialized: bool,
     output_device_name: String,
     sound_feedback: bool,
+    previous_volume_level: u32,
+    previous_is_muted: bool,
 }
 
 impl VolumeModule {
@@ -34,6 +39,8 @@ impl VolumeModule {
             com_initialized: false,
             output_device_name: String::new(),
             sound_feedback: true, // Default to enabled
+            previous_volume_level: 50,
+            previous_is_muted: false,
         };
         module.init_com();
         module
@@ -47,6 +54,8 @@ impl VolumeModule {
             }
         }
     }
+
+
 
     /// Force an immediate update
     fn force_update(&mut self, config: &crate::config::Config) {
@@ -142,12 +151,18 @@ impl VolumeModule {
     /// Toggle mute (now with real system integration)
     pub fn toggle_mute(&mut self) {
         self.set_system_mute(!self.is_muted);
+        // Update previous values to prevent duplicate sound playback
+        self.previous_volume_level = self.volume_level;
+        self.previous_is_muted = self.is_muted;
     }
 
     /// Change volume (now with real system integration)
     pub fn change_volume(&mut self, delta: i32) {
         let new_level = (self.volume_level as i32 + delta).clamp(0, 100) as u32;
         self.set_system_volume(new_level);
+        // Update previous values to prevent duplicate sound playback
+        self.previous_volume_level = self.volume_level;
+        self.previous_is_muted = self.is_muted;
     }
 
     /// Get volume level
@@ -191,9 +206,22 @@ impl Module for VolumeModule {
         // Check more frequently for responsive volume changes
         let interval_ms = config.modules.volume.update_interval_ms.max(100); // minimum 100ms
         if self.last_update.elapsed().as_millis() >= interval_ms as u128 {
+            // Store previous state before updating
+            let prev_volume = self.volume_level;
+            let prev_muted = self.is_muted;
+            
             self.force_update(config);
             // Update sound feedback setting from config
             self.sound_feedback = config.modules.volume.sound_feedback;
+            
+            // Check if volume or mute state changed (from external sources)
+            if self.sound_feedback && ((self.volume_level != prev_volume) || (self.is_muted != prev_muted)) {
+                crate::utils::play_volume_feedback_sound();
+            }
+            
+            // Update previous state
+            self.previous_volume_level = self.volume_level;
+            self.previous_is_muted = self.is_muted;
         }
     }
 
