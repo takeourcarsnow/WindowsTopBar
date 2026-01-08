@@ -2,21 +2,18 @@
 //!
 //! Contains functions for displaying and handling context menus and module-specific menus.
 
-use log::{debug, info, warn};
+use log::{info, warn};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey};
-use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::Graphics::Gdi::InvalidateRect;
 
 use crate::config::Config;
-use crate::utils::{open_url, truncate_string};
 
 use super::state::get_window_state;
 use super::renderer::with_renderer;
 use super::config_handlers::{open_config_file, reload_config, reset_config, toggle_config_bool, toggle_module};
-use super::module_handlers::show_module_menu;
 
 // Menu item IDs
 const MENU_SHOW_CLOCK: u32 = 1001;

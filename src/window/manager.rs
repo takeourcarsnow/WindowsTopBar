@@ -6,8 +6,6 @@ use anyhow::Result;
 use log::info;
 use parking_lot::RwLock;
 use std::sync::Arc;
-use windows::core::w;
-use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE,
@@ -20,7 +18,6 @@ use windows::Win32::UI::HiDpi::{
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey;
 use windows::Win32::Foundation::GetLastError;
-use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::Win32::Graphics::Gdi::InvalidateRect;
 
@@ -30,7 +27,7 @@ use crate::render::Renderer;
 use crate::theme::Theme;
 use crate::utils::{get_screen_size, scale_by_dpi, to_pcwstr, to_wide_string, Rect};
 
-use super::state::{get_window_state, set_window_state, WindowState};
+use super::state::{set_window_state, WindowState};
 
 /// Window class name
 const WINDOW_CLASS: &str = "TopBarWindowClass";

@@ -274,7 +274,7 @@ impl NightLightModule {
     /// Broadcast a settings change message to make Windows apply the change immediately
     fn broadcast_settings_change() {
         use windows::Win32::UI::WindowsAndMessaging::{
-            SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+            HWND_BROADCAST, WM_SETTINGCHANGE,
         };
         use windows::Win32::Foundation::WPARAM;
         

@@ -50,7 +50,6 @@ fn meta_path() -> PathBuf {
 }
 
 /// A simple in-memory search index built from filenames -> full paths.
-use std::collections::HashMap;
 
 pub struct SearchIndex {
     /// Minimal entries: (lowercase filename, lowercase full path, full path)
