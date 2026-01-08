@@ -98,6 +98,22 @@ pub unsafe extern "system" fn window_proc(
                             // Show quick search popup centered under the bar
                             let _ = render::show_quick_search(hwnd);
                         }
+                        crate::hotkey::HotkeyAction::OpenMenu => {
+                            // Open the app menu (approximate position at left side)
+                            // Use the public helper so behavior is consistent with clicks
+                            super::module_handlers::show_module_menu(hwnd, "app_menu", 12, 28);
+                        }
+                        crate::hotkey::HotkeyAction::ToggleTheme => {
+                            // Toggle theme using the ThemeManager and reapply window style
+                            if let Some(state) = get_window_state() {
+                                let mut s = state.write();
+                                s.theme_manager.toggle();
+                                let theme = s.theme_manager.theme().clone();
+                                drop(s);
+                                let _ = super::manager::WindowManager::apply_window_style(hwnd, &theme);
+                                let _ = InvalidateRect(hwnd, None, true);
+                            }
+                        }
                         crate::hotkey::HotkeyAction::ToggleBar => {
                             // Toggle visibility via WindowManager post message
                             unsafe { let _ = PostMessageW(hwnd, WM_USER + 99, WPARAM(0), LPARAM(0)); }

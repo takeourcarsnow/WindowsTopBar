@@ -19,6 +19,7 @@ use windows::Win32::UI::HiDpi::{
     GetDpiForWindow, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey;
+use windows::Win32::Foundation::GetLastError;
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::Win32::Graphics::Gdi::InvalidateRect;
@@ -114,14 +115,18 @@ impl WindowManager {
                     unsafe {
                         let res = RegisterHotKey(hwnd, id, windows::Win32::UI::Input::KeyboardAndMouse::HOT_KEY_MODIFIERS(hk.modifiers), hk.key);
                         if res.is_ok() {
+                            // Record mapping and log success for diagnostics
                             global_map.insert(id, action);
+                            info!("Registered hotkey '{}' -> id={} modifiers={} key=0x{:X}", s, id, hk.modifiers, hk.key);
                         } else {
-                            log::warn!("Failed to register hotkey {} -> {}", s, id);
+                            let err = unsafe { GetLastError() };
+                            log::warn!("Failed to register hotkey {} -> {} (err={})", s, id, err.0);
                         }
                     }
                 }
             }
         };
+
 
         // Fixed ids for core hotkeys (keeps behavior deterministic)
         const HK_TOGGLE_BAR: i32 = 6000;
@@ -138,6 +143,12 @@ impl WindowManager {
         register_k(HK_TOGGLE_THEME, config.hotkeys.toggle_theme.clone(), HotkeyAction::ToggleTheme);
 
         crate::hotkey::set_global_hotkey_map(global_map);
+
+        // Log the final global hotkey map for diagnostics (helpful when registrations fail)
+        if let Some(m) = crate::hotkey::global_hotkey_map() {
+            let g = m.lock();
+            info!("Global hotkey map configured: {:?}", g);
+        }
 
         info!("Window created successfully at {:?}", bar_rect);
 

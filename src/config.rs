@@ -671,8 +671,10 @@ impl Default for HotkeyConfig {
     fn default() -> Self {
         Self {
             toggle_bar: Some("Alt+T".to_string()),
-            open_menu: Some("Alt+Space".to_string()),
-            quick_search: Some("Alt+S".to_string()),
+            // Prefer Alt+M for opening the app menu to avoid conflicting with quick search
+            open_menu: Some("Alt+M".to_string()),
+            // Use Alt+Space to activate quick search by default (user-requested behavior)
+            quick_search: Some("Alt+Space".to_string()),
             toggle_theme: Some("Alt+D".to_string()),
         }
     }
