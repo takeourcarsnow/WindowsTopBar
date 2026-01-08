@@ -69,7 +69,7 @@ impl SearchIndex {
         // Minimal, fast index: only include common application files and shortcuts
         const MAX_ENTRIES: usize = 10000;
         const MAX_DEPTH: usize = 6;
-        let allowed_exts = ["exe", "lnk", "bat", "msi", "com"];
+        let allowed_exts = ["exe", "lnk", "bat", "cmd", "msi", "com", "ps1", "txt", "pdf", "json", "xml", "zip"];
 
         // Compile glob patterns for exclusion
         let exclude_globs: Vec<glob::Pattern> = exclude_patterns
@@ -257,12 +257,17 @@ fn calculate_relevance_score(filename: &str, path: &str, query: &str, app_paths:
     let depth = path.matches('\\').count() as f32;
     score -= depth * 2.0;
 
-    // 5. Boost for executable files (.exe, .lnk, .bat)
-    if filename.ends_with(".exe") || filename.ends_with(".lnk") || filename.ends_with(".bat") {
+    // 5. Boost for executable and script files
+    if filename.ends_with(".exe") || filename.ends_with(".lnk") || filename.ends_with(".bat") || filename.ends_with(".cmd") || filename.ends_with(".ps1") {
         score += 50.0;
     }
+    
+    // 6. Boost for document and archive files
+    if filename.ends_with(".txt") || filename.ends_with(".pdf") || filename.ends_with(".json") || filename.ends_with(".xml") || filename.ends_with(".zip") {
+        score += 20.0;
+    }
 
-    // 6. Boost if filename appears at the very start of path (not in a subdirectory as much)
+    // 7. Boost if filename appears at the very start of path (not in a subdirectory as much)
     if path.to_lowercase().contains(&format!("\\{}", filename.to_lowercase())) {
         let pos = path.to_lowercase().rfind(&format!("\\{}", filename.to_lowercase())).unwrap_or(0);
         let prefix_depth = path[..pos].matches('\\').count();

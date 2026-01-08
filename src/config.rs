@@ -723,6 +723,13 @@ impl Default for SearchConfig {
                 default_paths.push(programs);
             }
         }
+        if let Some(appdata) = dirs::data_dir() {
+            // Roaming app installation directory
+            let programs = appdata.join("Programs");
+            if programs.exists() {
+                default_paths.push(programs);
+            }
+        }
         
         Self {
             enabled: true,
@@ -738,7 +745,6 @@ impl Default for SearchConfig {
                 "**/obj".to_string(),
                 "**/Debug".to_string(),
                 "**/Release".to_string(),
-                "**/AppData".to_string(),
                 "**/Application Data".to_string(),
                 "**/Local Settings".to_string(),
                 "**/ProgramData".to_string(),
