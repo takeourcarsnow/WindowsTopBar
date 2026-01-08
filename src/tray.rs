@@ -249,7 +249,7 @@ impl TrayMenu {
                 },
                 TrayMenuItem {
                     id: 3,
-                    label: "About TopBar".to_string(),
+                    label: "Quickstart / Intro Guide".to_string(),
                     is_separator: false,
                     is_checked: false,
                     is_disabled: false,
@@ -350,8 +350,8 @@ impl TrayMenu {
                 debug!("Settings clicked");
             }
             3 => {
-                // About
-                debug!("About clicked");
+                // Quickstart / Intro Guide
+                crate::window::menus::show_quickstart_dialog();
             }
             100 => {
                 // Exit

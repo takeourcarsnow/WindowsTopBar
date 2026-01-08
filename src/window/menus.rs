@@ -547,7 +547,7 @@ pub fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
         }
 
         // App menu
-        2501 => show_about_dialog(),
+        2501 => show_quickstart_dialog(),
         2506 => install_mac_cursors(hwnd),
         2502 => open_config_file(),
         2503 => reload_config(hwnd),
@@ -560,18 +560,20 @@ pub fn handle_menu_command(hwnd: HWND, cmd_id: u32) {
     }
 }
 
-/// Show about dialog
-fn show_about_dialog() {
+/// Show quickstart / intro guide dialog
+pub fn show_quickstart_dialog() {
     use windows::Win32::UI::WindowsAndMessaging::MessageBoxW;
     unsafe {
-        let title: Vec<u16> = "About TopBar"
+        let title: Vec<u16> = "Quickstart / Intro Guide"
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
-        let msg: Vec<u16> = format!(
-            "TopBar v{}\n\nA native Windows 11 topbar inspired by macOS.\n\nRight-click modules to configure them.",
+        let msg_text = format!(
+            "TopBar v{}\n\nQuickstart Guide:\n\n• Right-click the top bar or modules to toggle and configure modules.\n• Use 'Open Config File' to edit advanced settings.\n• Enable Quick Search from the app menu and configure its hotkey in the config.\n• Use 'Install macOS Cursors' to apply the included cursor set.\n\nIf you need more help, see the README or project docs.",
             env!("CARGO_PKG_VERSION")
-        ).encode_utf16().chain(std::iter::once(0)).collect();
+        );
+
+        let msg: Vec<u16> = msg_text.encode_utf16().chain(std::iter::once(0)).collect();
 
         MessageBoxW(
             None,

@@ -258,20 +258,106 @@ fn show_clipboard_menu(hwnd: HWND, x: i32, y: i32) {
         }
     });
 
+    // Capture the currently focused window so we can restore it when pasting
+    let prev_hwnd = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+
     let cmd = show_popup_menu(hwnd, x, y, |menu| {
         if history.is_empty() {
             append_menu_item(menu, CLIPBOARD_BASE, "No clipboard history", false);
         } else {
             for (i, entry) in history.iter().take(10).enumerate() {
                 let label = crate::utils::truncate_string(entry, 40);
-                append_menu_item(menu, CLIPBOARD_BASE + i as u32, &label, i == 0);
+                // No checkmark — top item being in clipboard is implicit
+                append_menu_item(menu, CLIPBOARD_BASE + i as u32, &label, false);
             }
         }
     });
 
     if cmd != 0 {
-        info!("Clipboard menu returned cmd: {}", cmd);
-        super::menus::handle_menu_command(hwnd, cmd);
+        let cmd_id = cmd as u32;
+        // If a clipboard entry was selected, set clipboard & try to paste into the previous window
+        if (CLIPBOARD_BASE..CLIPBOARD_BASE + 100).contains(&cmd_id) {
+            let idx = (cmd_id - CLIPBOARD_BASE) as usize;
+            if idx < history.len() {
+                let text = history[idx].clone();
+
+                // Update the clipboard via the module (so in-memory state is consistent)
+                with_renderer(|renderer| {
+                    if let Some(module) = renderer.module_registry.get_mut("clipboard") {
+                        if let Some(cm) = module.as_any_mut().downcast_mut::<crate::modules::clipboard::ClipboardModule>() {
+                            cm.set_clipboard_text(&text);
+                        }
+                    }
+                });
+
+                // Try to restore focus to previous window and send Ctrl+V
+                unsafe {
+                    let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(prev_hwnd);
+                    // Small delay to allow focus to settle
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+
+                    use windows::Win32::UI::Input::KeyboardAndMouse::{
+                        SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+                        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL,
+                    };
+                    let vk_v = VIRTUAL_KEY(0x56); // 'V'
+                    let inputs = [
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+                                ki: KEYBDINPUT {
+                                    wVk: VK_CONTROL,
+                                    wScan: 0,
+                                    dwFlags: KEYBD_EVENT_FLAGS(0),
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
+                            },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+                                ki: KEYBDINPUT {
+                                    wVk: vk_v,
+                                    wScan: 0,
+                                    dwFlags: KEYBD_EVENT_FLAGS(0),
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
+                            },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+                                ki: KEYBDINPUT {
+                                    wVk: vk_v,
+                                    wScan: 0,
+                                    dwFlags: KEYEVENTF_KEYUP,
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
+                            },
+                        },
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+                                ki: KEYBDINPUT {
+                                    wVk: VK_CONTROL,
+                                    wScan: 0,
+                                    dwFlags: KEYEVENTF_KEYUP,
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
+                            },
+                        },
+                    ];
+                    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+                }
+            }
+        } else {
+            info!("Clipboard menu returned cmd: {}", cmd_id);
+            super::menus::handle_menu_command(hwnd, cmd_id);
+        }
     }
 }
 
@@ -338,9 +424,6 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
                 }
                 append_menu_item(menu, WEATHER_OPEN + i as u32, &l, false);
             }
-            AppendMenuW(menu, MF_SEPARATOR, 0, None).ok();
-            append_menu_item(menu, WEATHER_REFRESH, "Refresh", false);
-            append_menu_item(menu, WEATHER_OPEN, "Open Full Forecast", false);
         }
 
         let _ = SetForegroundWindow(hwnd);
@@ -360,26 +443,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
             let cmd_id = cmd.0 as u32;
             match cmd_id {
                 id if id >= WEATHER_OPEN && id < WEATHER_OPEN + 10 => {
-                    // Clicking a forecast day - open full forecast in browser
-                    open_url("https://wttr.in/");
-                }
-                WEATHER_REFRESH => {
-                    with_renderer(|renderer| {
-                        if let Some(module) = renderer.module_registry.get_mut("weather") {
-                            if let Some(wm) = module
-                                .as_any_mut()
-                                .downcast_mut::<crate::modules::weather::WeatherModule>() {
-                                wm.refresh();
-                            }
-                        }
-                    });
-                    if let Some(state) = get_window_state() {
-                        state.write().needs_redraw = true;
-                    }
-                    let _ = InvalidateRect(hwnd, None, false);
-                }
-                WEATHER_OPEN => {
-                    // Open in browser
+                    // Clicking a forecast day - open forecast in browser
                     open_url("https://wttr.in/");
                 }
                 _ => {}
@@ -390,7 +454,7 @@ fn show_weather_menu(hwnd: HWND, x: i32, y: i32) {
 
 fn show_app_menu(hwnd: HWND, x: i32, y: i32) {
     let cmd = show_popup_menu(hwnd, x, y, |menu| {
-        append_menu_item(menu, APP_ABOUT, "About TopBar", false);
+        append_menu_item(menu, APP_ABOUT, "Quickstart / Intro Guide", false);
         append_menu_item(menu, APP_INSTALL_CURSORS, "Install macOS Cursors", false);
         unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None).ok(); }
         append_menu_item(menu, APP_SETTINGS, "Open Config File", false);
