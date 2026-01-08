@@ -84,6 +84,9 @@ glob = "0.3"
 # (Optional) ignore patterns support can be added later with `ignore` crate
 # ignore = "0.4"
 
+# Image decoding for QuickLook previews
+image = "0.24"
+
 [build-dependencies]
 embed-resource = "2.4"
 

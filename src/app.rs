@@ -8,6 +8,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use crate::config::Config;
+use crate::quicklook;
 use crate::tray::TrayIcon;
 use crate::utils::enable_dark_mode_for_app;
 use crate::window::WindowManager;
@@ -74,6 +75,15 @@ impl Application {
                     }
                 }
             });
+        }
+
+        // Start QuickLook hook if enabled
+        if config.quicklook.enabled {
+            if let Err(e) = quicklook::start_quicklook_hook() {
+                warn!("Failed to start QuickLook hook: {}", e);
+            } else {
+                info!("QuickLook feature enabled - press Space on files in Explorer to preview");
+            }
         }
 
         Ok(Self {
@@ -165,7 +175,9 @@ impl Application {
 impl Drop for Application {
     fn drop(&mut self) {
         info!("Cleaning up TopBar application");
-        // Cleanup happens automatically through Drop implementations
+        // Stop QuickLook hook
+        quicklook::stop_quicklook_hook();
+        // Other cleanup happens automatically through Drop implementations
     }
 }
 

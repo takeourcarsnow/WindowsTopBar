@@ -10,6 +10,7 @@ mod config;
 mod effects;
 mod error;
 mod hotkey;
+mod quicklook;
 mod search;
 mod modules;
 mod render;

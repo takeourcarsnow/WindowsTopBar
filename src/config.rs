@@ -24,6 +24,8 @@ pub struct Config {
     pub hotkeys: HotkeyConfig,
     /// Quick search configuration
     pub search: SearchConfig,
+    /// QuickLook configuration
+    pub quicklook: QuickLookConfig,
 }
 
 impl Config {
@@ -827,6 +829,21 @@ pub struct NightLightConfig {
 }
 
 impl Default for NightLightConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+        }
+    }
+}
+
+/// QuickLook configuration (macOS-style spacebar preview)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuickLookConfig {
+    /// Enable QuickLook feature
+    pub enabled: bool,
+}
+
+impl Default for QuickLookConfig {
     fn default() -> Self {
         Self {
             enabled: true,
