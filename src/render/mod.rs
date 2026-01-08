@@ -23,7 +23,7 @@ use windows::Win32::UI::WindowsAndMessaging::{DrawIconEx, DestroyIcon, DI_NORMAL
 use crate::modules::{ModuleRegistry, ModuleRenderContext};
 use crate::theme::Theme;
 use crate::utils::Rect;
-use crate::window::get_window_state;
+use crate::window::state::get_window_state;
 
 /// Main renderer for the topbar
 pub struct Renderer {
@@ -288,7 +288,7 @@ impl Renderer {
                             let text = self
                                 .module_registry
                                 .get(id.as_str())
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_default();
                             let (tw, _) = self.measure_text(hdc, &text);
                             tw + item_padding * 2
@@ -307,7 +307,7 @@ impl Renderer {
                             let clock_text = self
                                 .module_registry
                                 .get("clock")
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
                             let rect = self.draw_module_text_fixed(
                                 hdc,
@@ -323,7 +323,7 @@ impl Renderer {
                             let text = self
                                 .module_registry
                                 .get(id.as_str())
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_default();
                             let rect = self.draw_module_text(
                                 hdc,
@@ -355,7 +355,7 @@ impl Renderer {
                         let clock_text = self
                             .module_registry
                             .get("clock")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| Local::now().format("%I:%M %p").to_string());
                         // Use sample text to get fixed width and prevent layout shifting
                         let sample = self.clock_sample_text(&config);
@@ -379,7 +379,7 @@ impl Renderer {
                         let battery_text = self
                             .module_registry
                             .get("battery")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| {
                                 let icon = self.icons.get("battery");
                                 format!("{} --", icon)
@@ -408,7 +408,7 @@ impl Renderer {
                         let volume_text = self
                             .module_registry
                             .get("volume")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| self.icons.get("volume_high"));
                         // Dynamically calculate width based on actual display text
                         let (text_width, _) = self.measure_text(hdc, &volume_text);
@@ -437,7 +437,7 @@ impl Renderer {
                                 .module_registry
                                 .get("network")
                                 .map(|m| {
-                                    let t = m.display_text(&*config);
+                                    let t = m.display_text(config.as_ref());
                                     if t.trim().is_empty() {
                                         self.icons.get("wifi")
                                     } else {
@@ -535,7 +535,7 @@ impl Renderer {
                             let sysinfo_text = self
                                 .module_registry
                                 .get("system_info")
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_else(|| "CPU --  RAM --".to_string());
 
                             // Compute a sensible minimum width based on which parts are configured
@@ -575,7 +575,7 @@ impl Renderer {
                         let media_text = self
                             .module_registry
                             .get("media")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_default();
                         if !media_text.is_empty() {
                             let (text_width, _) = self.measure_text(hdc, &media_text);
@@ -600,7 +600,7 @@ impl Renderer {
                         let clipboard_text = self
                             .module_registry
                             .get("clipboard")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| "📋".to_string());
                         let (text_width, _) = self.measure_text(hdc, &clipboard_text);
                         x -= text_width + item_padding * 2;
@@ -657,7 +657,7 @@ impl Renderer {
                             let gpu_text = self
                                 .module_registry
                                 .get("gpu")
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_else(|| self.icons.get("gpu"));
                             // Fixed width for "GPU 100%" format
                             let min_width = self.scale(92);
@@ -682,7 +682,7 @@ impl Renderer {
                         let keyboard_text = self
                             .module_registry
                             .get("keyboard_layout")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| "EN".to_string());
                         let (text_width, _) = self.measure_text(hdc, &keyboard_text);
                         x -= text_width + item_padding * 2;
@@ -705,7 +705,7 @@ impl Renderer {
                         let uptime_text = self
                             .module_registry
                             .get("uptime")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| "0d 0h".to_string());
                         let min_width = self.scale(72);
                         x -= min_width;
@@ -732,7 +732,7 @@ impl Renderer {
                                 .module_registry
                                 .get("bluetooth")
                                 .map(|m| {
-                                    let t = m.display_text(&*config);
+                                    let t = m.display_text(config.as_ref());
                                     if t.trim().is_empty() {
                                         self.icons.get("bluetooth")
                                     } else {
@@ -771,7 +771,7 @@ impl Renderer {
                             let night_light_text = self
                                 .module_registry
                                 .get("night_light")
-                                .map(|m| m.display_text(&*config))
+                                .map(|m| m.display_text(config.as_ref()))
                                 .unwrap_or_else(|| "NL".to_string());
                             let (text_width, _) = self.measure_text(hdc, &night_light_text);
                             x -= text_width + item_padding * 2;
@@ -864,7 +864,7 @@ impl Renderer {
                         let weather_text = self
                             .module_registry
                             .get("weather")
-                            .map(|m| m.display_text(&*config))
+                            .map(|m| m.display_text(config.as_ref()))
                             .unwrap_or_else(|| "🌡️ ...".to_string());
                         if !weather_text.is_empty() {
                             let (text_width, _) = self.measure_text(hdc, &weather_text);
@@ -897,7 +897,7 @@ impl Renderer {
                     let display = self
                         .module_registry
                         .get(drag_id)
-                        .map(|m| m.display_text(&*config))
+                        .map(|m| m.display_text(config.as_ref()))
                         .unwrap_or_else(|| drag_id.clone());
 
                     let (text_w, text_h) = self.measure_text(hdc, &display);

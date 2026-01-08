@@ -9,7 +9,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
 
-use crate::window::get_window_state;
+use crate::window::state::get_window_state;
 use crate::theme::Color;
 use crate::search;
 use crate::effects::EffectsManager;
@@ -121,7 +121,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
 
             if let Some(state) = get_state(hwnd) {
                 if let Some(gs) = get_window_state() {
-                    let theme = gs.read().theme_manager.theme().clone();
+                    let theme: crate::theme::Theme = gs.read().theme_manager.theme().clone();
 
                     // Dark solid background (dark grey)
                     let bg = CreateSolidBrush(Color::rgb(28, 28, 30).colorref());
